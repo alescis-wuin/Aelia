@@ -4,12 +4,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>fr.seynax</groupId>
+    <groupId>fr.alescis</groupId>
     <artifactId>Aeliea</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <name>Aelia</name>
     <description>Aelia is a Weather utility application</description>
-    <url>https://github.com/seynax/Aeliea</url>
+    <url>https://github.com/alescis-wuin/Aeliea</url>
     <inceptionYear>2026</inceptionYear>
 
     <licenses>
@@ -22,15 +22,15 @@
 
     <developers>
         <developer>
-            <id>seynax</id>
-            <name>seynax</name>
+            <id>alescis-wuin</id>
+            <name>alescis-wuin</name>
         </developer>
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/seynax/Aeliea.git</connection>
-        <developerConnection>scm:git:git@github.com:seynax/Aeliea.git</developerConnection>
-        <url>https://github.com/seynax/Aeliea</url>
+        <connection>scm:git:https://github.com/alescis-wuin/Aeliea.git</connection>
+        <developerConnection>scm:git:git@github.com:alescis-wuin/Aeliea.git</developerConnection>
+        <url>https://github.com/alescis-wuin/Aeliea</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -85,7 +85,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>fr.seynax.aelia.WeatherUtilityApplication</mainClass>
+                    <mainClass>fr.alescis.aelia.WeatherUtilityApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

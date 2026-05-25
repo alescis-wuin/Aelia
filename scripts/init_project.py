@@ -15,11 +15,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-OLD_OWNER = "seynax"
+OLD_OWNER = "alescis-wuin"
 OLD_REPO = "Aeliea"
 OLD_DISPLAY_NAME = "Aelia"
-OLD_GROUP_ID = "fr.seynax"
-OLD_BASE_PACKAGE = "fr.seynax.aelia"
+OLD_GROUP_ID = "fr.alescis"
+OLD_BASE_PACKAGE = "fr.alescis.aelia"
 OLD_BASE_PACKAGE_PATH = OLD_BASE_PACKAGE.replace(".", "/")
 OLD_DESCRIPTION = "Aelia is a Weather utility application"
 
@@ -158,8 +158,8 @@ def print_config(config: ProjectConfig) -> None:
 
 def customize_project(project_root: Path, config: ProjectConfig) -> None:
     replacements = [
-        ("https://github.com/seynax/Aeliea", f"https://github.com/{config.owner}/{config.repo}"),
-        ("git@github.com:seynax/Aeliea.git", f"git@github.com:{config.owner}/{config.repo}.git"),
+        ("https://github.com/alescis-wuin/Aeliea", f"https://github.com/{config.owner}/{config.repo}"),
+        ("git@github.com:alescis-wuin/Aeliea.git", f"git@github.com:{config.owner}/{config.repo}.git"),
         (OLD_BASE_PACKAGE_PATH, config.base_package.replace(".", "/")),
         (OLD_BASE_PACKAGE, config.base_package),
         (OLD_GROUP_ID, config.group_id),
