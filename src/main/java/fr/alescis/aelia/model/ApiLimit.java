@@ -1,33 +1,54 @@
 package fr.alescis.aelia.model;
 
-import java.util.Objects;
-import java.util.OptionalLong;
-
 /**
- * Describes a provider limit that the UI can expose to users.
+ * Provider limit visible in the API limits reference section.
  */
-public record ApiLimit(
-        String name,
-        LimitPeriod period,
-        OptionalLong limit,
-        String unit,
-        String notes
-) {
+public record ApiLimit(String name, String period, String value) {
     public ApiLimit {
-        Objects.requireNonNull(name, "name");
-        Objects.requireNonNull(period, "period");
-        Objects.requireNonNull(limit, "limit");
-        Objects.requireNonNull(unit, "unit");
-        Objects.requireNonNull(notes, "notes");
-        if (name.isBlank()) {
-            throw new IllegalArgumentException("Limit name must not be blank.");
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Limit name is required.");
         }
-        if (unit.isBlank()) {
-            throw new IllegalArgumentException("Limit unit must not be blank.");
+        if (period == null || period.isBlank()) {
+            throw new IllegalArgumentException("Limit period is required.");
+        }
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Limit value is required.");
         }
     }
 
-    public String formattedLimit() {
-        return limit.isPresent() ? Long.toString(limit.getAsLong()) : "unlimited";
+    /**
+     * Creates a metered limit entry from a structured period.
+     *
+     * @param name displayed limit name
+     * @param period measurement window
+     * @param amount allowed amount for the window
+     * @param unit displayed unit
+     * @return immutable API limit entry
+     */
+    public static ApiLimit limited(String name, LimitPeriod period, int amount, String unit) {
+        if (period == null) {
+            throw new IllegalArgumentException("Limit period is required.");
+        }
+        if (amount < 0) {
+            throw new IllegalArgumentException("Limit amount must be positive or zero.");
+        }
+        String normalizedUnit = unit == null || unit.isBlank() ? "requests" : unit.trim();
+        return new ApiLimit(name, period.label(), amount + " " + normalizedUnit);
+    }
+
+    /**
+     * Creates an unmetered limit entry from a structured period.
+     *
+     * @param name displayed limit name
+     * @param period measurement window
+     * @param unit displayed unit
+     * @return immutable API limit entry
+     */
+    public static ApiLimit unmetered(String name, LimitPeriod period, String unit) {
+        if (period == null) {
+            throw new IllegalArgumentException("Limit period is required.");
+        }
+        String normalizedUnit = unit == null || unit.isBlank() ? "requests" : unit.trim();
+        return new ApiLimit(name, period.label(), "unmetered " + normalizedUnit);
     }
 }

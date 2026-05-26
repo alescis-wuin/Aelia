@@ -1,56 +1,13 @@
 package fr.alescis.aelia;
 
-import atlantafx.base.theme.PrimerDark;
-import fr.alescis.aelia.controller.DashboardController;
-import fr.alescis.aelia.provider.simulation.SimulatedWeatherDataProvider;
-import fr.alescis.aelia.service.WeatherService;
-import fr.alescis.aelia.ui.WeatherDashboardView;
-import javafx.application.Application;
-import javafx.scene.Scene;
-import javafx.stage.Stage;
-
-import java.net.URL;
-
 /**
- * JavaFX entry point for the weather utility application.
+ * Backward-compatible launcher kept for older run configurations.
  */
-public final class WeatherUtilityApplication extends Application {
-
-    private WeatherService weatherService;
+public final class WeatherUtilityApplication {
+    private WeatherUtilityApplication() {
+    }
 
     public static void main(String[] args) {
-        launch(args);
-    }
-
-    @Override
-    public void start(Stage stage) {
-        Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
-
-        weatherService = new WeatherService(new SimulatedWeatherDataProvider());
-        WeatherDashboardView view = new WeatherDashboardView();
-        DashboardController controller = new DashboardController(weatherService, view);
-        controller.initialize();
-
-        Scene scene = new Scene(view.root(), 1280, 820);
-        URL stylesheet = WeatherUtilityApplication.class.getResource(
-                "/fr/alescis/aelia/styles/application.css"
-        );
-        if (stylesheet != null) {
-            scene.getStylesheets().add(stylesheet.toExternalForm());
-        }
-
-        stage.setTitle("Aelia");
-        stage.setMinWidth(1080);
-        stage.setMinHeight(720);
-        stage.setScene(scene);
-        stage.setOnCloseRequest(event -> weatherService.close());
-        stage.show();
-    }
-
-    @Override
-    public void stop() {
-        if (weatherService != null) {
-            weatherService.close();
-        }
+        AeliaApplication.main(args);
     }
 }

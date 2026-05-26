@@ -15,7 +15,6 @@ import java.util.Objects;
  * Lightweight non-geospatial approximation for sunrise and sunset values.
  */
 final class SunCycleState {
-
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT);
 
     private final ZoneId zoneId;
@@ -24,12 +23,12 @@ final class SunCycleState {
         this.zoneId = Objects.requireNonNull(zoneId, "zoneId");
     }
 
-    MetricValue sunrise(Instant now) {
-        return timeValue(SimulationCatalog.sunriseMetric(), now, true);
+    MetricValue sunrise(DataMetric metric, Instant now) {
+        return timeValue(metric, now, true);
     }
 
-    MetricValue sunset(Instant now) {
-        return timeValue(SimulationCatalog.sunsetMetric(), now, false);
+    MetricValue sunset(DataMetric metric, Instant now) {
+        return timeValue(metric, now, false);
     }
 
     private MetricValue timeValue(DataMetric metric, Instant now, boolean sunrise) {
@@ -38,6 +37,6 @@ final class SunCycleState {
         int shiftMinutes = (int) Math.round(seasonal * 105.0);
         LocalTime base = sunrise ? LocalTime.of(7, 20) : LocalTime.of(18, 35);
         LocalTime value = sunrise ? base.minusMinutes(shiftMinutes) : base.plusMinutes(shiftMinutes);
-        return MetricValue.text(metric, now, value.format(FORMATTER), 0.86);
+        return MetricValue.text(metric, now, value.format(FORMATTER));
     }
 }

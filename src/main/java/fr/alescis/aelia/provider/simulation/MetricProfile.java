@@ -1,29 +1,26 @@
 package fr.alescis.aelia.provider.simulation;
 
-import fr.alescis.aelia.model.DataMetric;
-
 /**
- * Simulation parameters attached to a numeric metric.
+ * Stable simulated range definition for one metric.
  */
-record MetricProfile(
-        DataMetric metric,
-        double initialMinimum,
-        double initialMaximum,
-        double targetMinimum,
-        double targetMaximum,
-        double volatility,
-        double attraction,
-        double maximumStepPerSecond
+public record MetricProfile(
+        String id,
+        double baseValue,
+        double amplitude,
+        double minimum,
+        double maximum,
+        String unit
 ) {
-    MetricProfile {
-        if (initialMinimum > initialMaximum) {
-            throw new IllegalArgumentException("Initial bounds are invalid for " + metric.id());
+    public MetricProfile {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("Metric id is required.");
         }
-        if (targetMinimum > targetMaximum) {
-            throw new IllegalArgumentException("Target bounds are invalid for " + metric.id());
+        unit = unit == null ? "" : unit;
+        if (amplitude < 0.0) {
+            throw new IllegalArgumentException("Amplitude cannot be negative.");
         }
-        if (volatility < 0.0 || attraction < 0.0 || maximumStepPerSecond <= 0.0) {
-            throw new IllegalArgumentException("Simulation parameters must be positive for " + metric.id());
+        if (maximum < minimum) {
+            throw new IllegalArgumentException("Maximum must be greater than or equal to minimum.");
         }
     }
 }

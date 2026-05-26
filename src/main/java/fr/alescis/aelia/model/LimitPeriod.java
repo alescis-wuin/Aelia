@@ -1,16 +1,17 @@
 package fr.alescis.aelia.model;
 
 /**
- * Time window used by an API limit.
+ * Human readable period used to display provider limits.
  */
 public enum LimitPeriod {
-    SECOND("per second"),
-    MINUTE("per minute"),
-    HOUR("per hour"),
-    DAY("per day"),
-    WEEK("per week"),
-    MONTH("per month"),
-    LOCAL("local runtime");
+    SECOND("seconde"),
+    MINUTE("minute"),
+    HOUR("heure"),
+    DAY("jour"),
+    MONTH("mois"),
+    CLIENT("client"),
+    STREAM("flux"),
+    NETWORK("réseau");
 
     private final String label;
 

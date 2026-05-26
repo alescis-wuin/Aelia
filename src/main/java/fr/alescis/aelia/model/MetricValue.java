@@ -1,39 +1,40 @@
 package fr.alescis.aelia.model;
 
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Objects;
-import java.util.OptionalDouble;
 
 /**
- * Current or streamed value for a metric.
+ * Generic typed metric value used by provider composition code.
  */
-public record MetricValue(
-        DataMetric metric,
-        Instant timestamp,
-        OptionalDouble numericValue,
-        String textValue,
-        double confidence
-) {
+public record MetricValue(String metricId, double value, String unit, Instant measuredAt, String textValue) {
     public MetricValue {
+        if (metricId == null || metricId.isBlank()) {
+            throw new IllegalArgumentException("Metric id is required.");
+        }
+        unit = unit == null ? "" : unit.trim();
+        measuredAt = Objects.requireNonNull(measuredAt, "measuredAt");
+        textValue = textValue == null ? "" : textValue.trim();
+    }
+
+    public MetricValue(String metricId, double value, String unit, Instant measuredAt) {
+        this(metricId, value, unit, measuredAt, "");
+    }
+
+    public static MetricValue numeric(DataMetric metric, Instant measuredAt, double value) {
         Objects.requireNonNull(metric, "metric");
-        Objects.requireNonNull(timestamp, "timestamp");
-        Objects.requireNonNull(numericValue, "numericValue");
-        Objects.requireNonNull(textValue, "textValue");
-        if (textValue.isBlank()) {
-            throw new IllegalArgumentException("Metric text value must not be blank.");
-        }
-        if (!Double.isFinite(confidence) || confidence < 0.0 || confidence > 1.0) {
-            throw new IllegalArgumentException("Confidence must be between 0 and 1.");
-        }
+        return new MetricValue(metric.id(), value, metric.unit(), measuredAt);
     }
 
-    public static MetricValue numeric(DataMetric metric, Instant timestamp, double value, double confidence) {
-        String formatted = String.format(Locale.ROOT, "%.1f %s", value, metric.unit()).trim();
-        return new MetricValue(metric, timestamp, OptionalDouble.of(value), formatted, confidence);
+    public static MetricValue text(DataMetric metric, Instant measuredAt, String value) {
+        Objects.requireNonNull(metric, "metric");
+        return new MetricValue(metric.id(), Double.NaN, metric.unit(), measuredAt, value);
     }
 
-    public static MetricValue text(DataMetric metric, Instant timestamp, String value, double confidence) {
-        return new MetricValue(metric, timestamp, OptionalDouble.empty(), value, confidence);
+    public DataMetric metric() {
+        return new DataMetric(metricId, metricId, DataCategory.WEATHER, textValue.isBlank() ? DataKind.NUMERIC : DataKind.TEXT, unit);
+    }
+
+    public Instant timestamp() {
+        return measuredAt;
     }
 }

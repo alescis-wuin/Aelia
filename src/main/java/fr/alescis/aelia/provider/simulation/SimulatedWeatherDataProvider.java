@@ -1,11 +1,12 @@
 package fr.alescis.aelia.provider.simulation;
 
 import fr.alescis.aelia.model.ApiLimit;
-import fr.alescis.aelia.model.DataKind;
+import fr.alescis.aelia.model.DataCategory;
 import fr.alescis.aelia.model.DataMetric;
 import fr.alescis.aelia.model.MetricValue;
 import fr.alescis.aelia.model.ProviderDescriptor;
 import fr.alescis.aelia.model.SubscriptionSnapshot;
+import fr.alescis.aelia.model.WeatherMetric;
 import fr.alescis.aelia.ports.WeatherDataProvider;
 import fr.alescis.aelia.ports.WeatherUpdateListener;
 
@@ -14,49 +15,47 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.ThreadFactory;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Local provider that simulates realistic weather and environmental data.
+ * Local provider that exposes the simulated dashboard metrics through the generic data-provider port.
  */
 public final class SimulatedWeatherDataProvider implements WeatherDataProvider {
-
     private static final ProviderDescriptor DESCRIPTOR = new ProviderDescriptor(
             "simulated-weather-provider",
             "Local simulated weather provider",
-            "0.1.0",
+            "0.3.11",
             "Local simulator; no network access and no API key.",
-            Optional.of(URI.create("https://github.com/alescis-wuin/Aeliea/tree/develop/docs/V0.1"))
+            Optional.of(URI.create("https://github.com/alescis-wuin/Aelia/tree/develop/docs/V0.3.11"))
     );
 
     private final ScheduledExecutorService executorService;
-    private final Map<String, MetricState> numericStates;
-    private final WeatherConditionState conditionState;
+    private final Map<String, MetricProfile> numericProfiles;
+    private final Map<String, DataMetric> metricsById;
     private final SunCycleState sunCycleState;
     private final Map<UUID, ActiveSubscription> subscriptions = new ConcurrentHashMap<>();
 
     public SimulatedWeatherDataProvider() {
-        Instant now = Instant.now();
-        this.executorService = Executors.newScheduledThreadPool(2, new SimulatorThreadFactory());
-        this.numericStates = SimulationCatalog.numericProfiles().stream()
-                .collect(Collectors.toConcurrentMap(
-                        profile -> profile.metric().id(),
-                        profile -> new MetricState(profile, new Random(profile.metric().id().hashCode() * 31L + now.getEpochSecond()), now)
-                ));
-        this.conditionState = new WeatherConditionState(new Random(7_331L + now.getEpochSecond()), now);
+        this.executorService = Executors.newScheduledThreadPool(2, runnable -> {
+            Thread thread = new Thread(runnable, "aelia-data-simulator-" + ThreadIds.NEXT.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
+        this.numericProfiles = Map.copyOf(SimulationCatalog.metricProfiles());
+        this.metricsById = buildMetricsById();
         this.sunCycleState = new SunCycleState(ZoneId.systemDefault());
     }
 
@@ -67,7 +66,7 @@ public final class SimulatedWeatherDataProvider implements WeatherDataProvider {
 
     @Override
     public List<DataMetric> supportedMetrics() {
-        return SimulationCatalog.metrics();
+        return List.copyOf(metricsById.values());
     }
 
     @Override
@@ -77,103 +76,153 @@ public final class SimulatedWeatherDataProvider implements WeatherDataProvider {
 
     @Override
     public MetricValue currentValue(String metricId) {
-        Objects.requireNonNull(metricId, "metricId");
-        DataMetric metric = SimulationCatalog.metricById(metricId);
+        DataMetric metric = metricById(metricId);
         Instant now = Instant.now();
-        if (metric.kind() == DataKind.NUMERIC) {
-            MetricState state = numericStates.get(metricId);
-            if (state == null) {
-                throw new IllegalStateException("Missing numeric state for metric: " + metricId);
-            }
-            return state.sample(now);
+        if ("sunrise".equals(metric.id())) {
+            return sunCycleState.sunrise(metric, now);
         }
-        if (metric.id().equals(SimulationCatalog.weatherConditionMetric().id())) {
-            return conditionState.sample(now);
+        if ("sunset".equals(metric.id())) {
+            return sunCycleState.sunset(metric, now);
         }
-        if (metric.id().equals(SimulationCatalog.sunriseMetric().id())) {
-            return sunCycleState.sunrise(now);
+        MetricProfile profile = numericProfiles.get(metric.id());
+        if (profile == null) {
+            throw new IllegalArgumentException("Unsupported metric id: " + metricId);
         }
-        if (metric.id().equals(SimulationCatalog.sunsetMetric().id())) {
-            return sunCycleState.sunset(now);
-        }
-        throw new IllegalArgumentException("Unsupported metric: " + metricId);
+        double value = varied(profile);
+        return MetricValue.numeric(metric, now, value);
     }
 
     @Override
     public UUID subscribe(String metricId, Duration interval, WeatherUpdateListener listener) {
-        Objects.requireNonNull(metricId, "metricId");
         Objects.requireNonNull(interval, "interval");
         Objects.requireNonNull(listener, "listener");
-        DataMetric metric = SimulationCatalog.metricById(metricId);
+        DataMetric metric = metricById(metricId);
         if (interval.isNegative() || interval.isZero()) {
             throw new IllegalArgumentException("Subscription interval must be positive.");
         }
-
         UUID id = UUID.randomUUID();
-        Runnable task = () -> publishSafely(id, metric, listener);
+        ActiveSubscription subscription = new ActiveSubscription(id, metric.id(), interval, Instant.now());
+        Runnable task = () -> publishSafely(subscription, listener);
         ScheduledFuture<?> future = executorService.scheduleAtFixedRate(
                 task,
-                Math.min(250L, interval.toMillis()),
-                interval.toMillis(),
+                0L,
+                Math.max(1L, interval.toMillis()),
                 TimeUnit.MILLISECONDS
         );
-        subscriptions.put(id, new ActiveSubscription(id, metric, interval, Instant.now(), future));
+        subscription.future().set(future);
+        subscriptions.put(id, subscription);
         return id;
     }
 
     @Override
     public void unsubscribe(UUID subscriptionId) {
-        Objects.requireNonNull(subscriptionId, "subscriptionId");
-        ActiveSubscription subscription = subscriptions.remove(subscriptionId);
+        ActiveSubscription subscription = subscriptions.remove(Objects.requireNonNull(subscriptionId, "subscriptionId"));
         if (subscription != null) {
-            subscription.future().cancel(false);
+            ScheduledFuture<?> future = subscription.future().get();
+            if (future != null) {
+                future.cancel(false);
+            }
         }
     }
 
     @Override
-    public List<SubscriptionSnapshot> activeSubscriptions() {
+    public List<SubscriptionSnapshot> subscriptions() {
         return subscriptions.values().stream()
                 .sorted(Comparator.comparing(ActiveSubscription::createdAt))
                 .map(subscription -> new SubscriptionSnapshot(
                         subscription.id(),
-                        subscription.metric(),
+                        subscription.metricId(),
                         subscription.interval(),
-                        subscription.createdAt()
+                        subscription.createdAt(),
+                        Optional.ofNullable(subscription.lastUpdateAt().get())
                 ))
                 .toList();
     }
 
     @Override
     public void close() {
-        subscriptions.keySet().forEach(this::unsubscribe);
+        for (UUID subscriptionId : List.copyOf(subscriptions.keySet())) {
+            unsubscribe(subscriptionId);
+        }
         executorService.shutdownNow();
     }
 
-    private void publishSafely(UUID subscriptionId, DataMetric metric, WeatherUpdateListener listener) {
+    private void publishSafely(ActiveSubscription subscription, WeatherUpdateListener listener) {
         try {
-            listener.onUpdate(subscriptionId, currentValue(metric.id()));
+            MetricValue value = currentValue(subscription.metricId());
+            subscription.lastUpdateAt().set(value.measuredAt());
+            listener.onUpdate(subscription.id(), value);
         } catch (RuntimeException exception) {
-            listener.onError(subscriptionId, exception);
+            listener.onError(subscription.id(), exception);
         }
+    }
+
+    private DataMetric metricById(String metricId) {
+        String normalized = Objects.requireNonNull(metricId, "metricId").trim();
+        DataMetric metric = metricsById.get(normalized);
+        if (metric == null) {
+            throw new IllegalArgumentException("Unsupported metric id: " + normalized);
+        }
+        return metric;
+    }
+
+    private Map<String, DataMetric> buildMetricsById() {
+        Map<String, DataMetric> metrics = new HashMap<>();
+        for (WeatherMetric weatherMetric : SimulationCatalog.metrics()) {
+            DataMetric metric = DataMetric.numeric(
+                    weatherMetric.id(),
+                    weatherMetric.label(),
+                    categoryFor(weatherMetric),
+                    weatherMetric.unit()
+            );
+            metrics.put(metric.id(), metric);
+        }
+        DataMetric sunrise = DataMetric.text("sunrise", "Lever du soleil", DataCategory.ASTRONOMY);
+        DataMetric sunset = DataMetric.text("sunset", "Coucher du soleil", DataCategory.ASTRONOMY);
+        metrics.put(sunrise.id(), sunrise);
+        metrics.put(sunset.id(), sunset);
+        return Map.copyOf(metrics);
+    }
+
+    private DataCategory categoryFor(WeatherMetric metric) {
+        String category = metric.category().toLowerCase(java.util.Locale.ROOT);
+        if (category.contains("air")) {
+            return DataCategory.AIR_QUALITY;
+        }
+        if (category.contains("pollen")) {
+            return DataCategory.POLLEN;
+        }
+        if (category.contains("sant")) {
+            return DataCategory.HEALTH;
+        }
+        if (category.contains("atmos")) {
+            return DataCategory.ATMOSPHERE;
+        }
+        return DataCategory.WEATHER;
+    }
+
+    private double varied(MetricProfile profile) {
+        double variation = ThreadLocalRandom.current().nextDouble(-profile.amplitude(), profile.amplitude());
+        return Math.max(profile.minimum(), Math.min(profile.maximum(), profile.baseValue() + variation));
     }
 
     private record ActiveSubscription(
             UUID id,
-            DataMetric metric,
+            String metricId,
             Duration interval,
             Instant createdAt,
-            ScheduledFuture<?> future
+            AtomicReference<Instant> lastUpdateAt,
+            AtomicReference<ScheduledFuture<?>> future
     ) {
+        private ActiveSubscription(UUID id, String metricId, Duration interval, Instant createdAt) {
+            this(id, metricId, interval, createdAt, new AtomicReference<>(), new AtomicReference<>());
+        }
     }
 
-    private static final class SimulatorThreadFactory implements ThreadFactory {
-        private final AtomicInteger counter = new AtomicInteger();
+    private static final class ThreadIds {
+        private static final AtomicInteger NEXT = new AtomicInteger();
 
-        @Override
-        public Thread newThread(Runnable runnable) {
-            Thread thread = new Thread(runnable, "weather-simulator-" + counter.incrementAndGet());
-            thread.setDaemon(true);
-            return thread;
+        private ThreadIds() {
         }
     }
 }

@@ -1,9 +1,15 @@
 package fr.alescis.aelia.model;
 
 /**
- * Distinguishes measured numeric values from textual states.
+ * Describes either a provider value representation or a future temporal data scope.
  */
 public enum DataKind {
     NUMERIC,
-    TEXT
+    TEXT,
+    TEMPORAL,
+    CURRENT,
+    HOURLY,
+    DAILY,
+    OBSERVED,
+    FORECAST
 }

@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>fr.alescis</groupId>
-    <artifactId>Aeliea</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <artifactId>aelia</artifactId>
+    <version>0.3.10-SNAPSHOT</version>
     <name>Aelia</name>
-    <description>Aelia is a Weather utility application</description>
-    <url>https://github.com/alescis-wuin/Aeliea</url>
+    <description>Accessible JavaFX weather dashboard inspired by a high-contrast desktop mockup.</description>
+    <url>https://github.com/alescis-wuin/Aelia</url>
     <inceptionYear>2026</inceptionYear>
 
     <licenses>
@@ -28,9 +28,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/alescis-wuin/Aeliea.git</connection>
-        <developerConnection>scm:git:git@github.com:alescis-wuin/Aeliea.git</developerConnection>
-        <url>https://github.com/alescis-wuin/Aeliea</url>
+        <connection>scm:git:https://github.com/alescis-wuin/Aelia.git</connection>
+        <developerConnection>scm:git:git@github.com:alescis-wuin/Aelia.git</developerConnection>
+        <url>https://github.com/alescis-wuin/Aelia</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -39,7 +39,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <javafx.version>21.0.7</javafx.version>
         <atlantafx.version>2.1.0</atlantafx.version>
-        <junit.jupiter.version>5.14.4</junit.jupiter.version>
+        <junit.jupiter.version>5.10.2</junit.jupiter.version>
     </properties>
 
     <dependencies>
@@ -66,7 +66,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.15.0</version>
+                <version>3.13.0</version>
                 <configuration>
                     <release>${maven.compiler.release}</release>
                     <showWarnings>true</showWarnings>
@@ -78,14 +78,14 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.5</version>
+                <version>3.2.5</version>
             </plugin>
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>fr.alescis.aelia.WeatherUtilityApplication</mainClass>
+                    <mainClass>fr.alescis.aelia.AeliaApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

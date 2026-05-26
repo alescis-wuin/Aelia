@@ -1,43 +1,38 @@
 package fr.alescis.aelia.model;
 
-import java.util.Locale;
 import java.util.Objects;
 
 /**
- * Immutable description of a provider metric.
+ * Structured metric descriptor independent from the presentation model.
  */
 public record DataMetric(
         String id,
-        String displayName,
+        String label,
         DataCategory category,
         DataKind kind,
-        String unit,
-        double minimum,
-        double maximum,
-        String description
+        String unit
 ) {
     public DataMetric {
-        Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(displayName, "displayName");
-        Objects.requireNonNull(category, "category");
-        Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(unit, "unit");
-        Objects.requireNonNull(description, "description");
-        if (!id.matches("[a-z][a-z0-9_]*")) {
-            throw new IllegalArgumentException("Metric id must use lower snake case: " + id);
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("Metric id is required.");
         }
-        if (displayName.isBlank()) {
-            throw new IllegalArgumentException("Metric display name must not be blank.");
+        if (label == null || label.isBlank()) {
+            throw new IllegalArgumentException("Metric label is required.");
         }
-        if (kind == DataKind.NUMERIC && (!Double.isFinite(minimum) || !Double.isFinite(maximum) || minimum >= maximum)) {
-            throw new IllegalArgumentException("Numeric metric bounds are invalid for " + id);
-        }
+        category = Objects.requireNonNull(category, "category");
+        kind = Objects.requireNonNull(kind, "kind");
+        unit = unit == null ? "" : unit.trim();
     }
 
-    public String rangeText() {
-        if (kind != DataKind.NUMERIC) {
-            return "state";
-        }
-        return String.format(Locale.ROOT, "%.1f to %.1f %s", minimum, maximum, unit).trim();
+    public static DataMetric numeric(String id, String label, DataCategory category, String unit) {
+        return new DataMetric(id, label, category, DataKind.NUMERIC, unit);
+    }
+
+    public static DataMetric text(String id, String label, DataCategory category) {
+        return new DataMetric(id, label, category, DataKind.TEXT, "");
+    }
+
+    public String displayName() {
+        return label;
     }
 }
