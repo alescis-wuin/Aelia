@@ -16,7 +16,6 @@ import javafx.scene.layout.Pane;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
-import netscape.javascript.JSObject;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -36,7 +35,6 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private final Consumer<LocationWeather> addLocationHandler;
     private final NominatimReverseGeocoder reverseGeocoder = new NominatimReverseGeocoder();
     private final AtomicInteger selectionVersion = new AtomicInteger();
-    private final JavaBridge javaBridge = new JavaBridge();
 
     private final Label selectedName = UiText.label("Cliquez sur la carte", "map-selection-title");
     private final Label selectedCoordinates = UiText.label("Aucune coordonnée sélectionnée", "map-coordinates");
@@ -92,11 +90,10 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         WebEngine engine = webView.getEngine();
         engine.setUserAgent(NominatimReverseGeocoder.USER_AGENT);
         engine.setJavaScriptEnabled(true);
+        engine.setOnAlert(event -> handleMapAlert(event.getData()));
         engine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
             if (newState == Worker.State.SUCCEEDED) {
-                JSObject window = (JSObject) engine.executeScript("window");
-                window.setMember("aeliaBridge", javaBridge);
-                engine.executeScript("if (window.aeliaBridgeReady) { window.aeliaBridgeReady(); }");
+                engine.executeScript("if (window.aeliaMapReady) { window.aeliaMapReady(); }");
                 status.setText("Carte chargée. Cliquez sur une zone.");
             } else if (newState == Worker.State.FAILED) {
                 status.setText("Carte indisponible. Vérifiez la connexion internet.");
@@ -156,6 +153,24 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         getChildren().add(panel);
     }
 
+    private void handleMapAlert(String data) {
+        if (data == null || !data.startsWith("aelia-map-click:")) {
+            return;
+        }
+        String payload = data.substring("aelia-map-click:".length());
+        String[] coordinates = payload.split(",", 2);
+        if (coordinates.length != 2) {
+            return;
+        }
+        try {
+            double latitude = Double.parseDouble(coordinates[0]);
+            double longitude = Double.parseDouble(coordinates[1]);
+            Platform.runLater(() -> selectCoordinates(latitude, longitude));
+        } catch (NumberFormatException ignored) {
+            status.setText("Coordonnées de carte invalides.");
+        }
+    }
+
     private void selectCoordinates(double latitude, double longitude) {
         int version = selectionVersion.incrementAndGet();
         ReverseGeocodeResult fallback = ReverseGeocodeResult.coordinatesOnly(latitude, longitude);
@@ -201,15 +216,6 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         reverseGeocoder.close();
     }
 
-    /**
-     * Public JavaScript bridge. Must remain public for JavaFX WebEngine reflection.
-     */
-    public final class JavaBridge {
-        public void onMapClicked(double latitude, double longitude) {
-            Platform.runLater(() -> selectCoordinates(latitude, longitude));
-        }
-    }
-
     private String mapHtml() {
         return """
                 <!doctype html>
@@ -237,14 +243,9 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
                     (function () {
                       let map;
                       let marker;
-                      let pendingPoint = null;
 
                       function notifyJava(lat, lng) {
-                        if (window.aeliaBridge) {
-                          window.aeliaBridge.onMapClicked(lat, lng);
-                        } else {
-                          pendingPoint = {lat: lat, lng: lng};
-                        }
+                        window.alert('aelia-map-click:' + lat + ',' + lng);
                       }
 
                       function selectPoint(lat, lng, notify) {
@@ -280,12 +281,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
                         });
                       }
 
-                      window.aeliaBridgeReady = function () {
-                        if (pendingPoint) {
-                          window.aeliaBridge.onMapClicked(pendingPoint.lat, pendingPoint.lng);
-                          pendingPoint = null;
-                        }
-                      };
+                      window.aeliaMapReady = function () { };
 
                       document.addEventListener('DOMContentLoaded', init);
                     }());
