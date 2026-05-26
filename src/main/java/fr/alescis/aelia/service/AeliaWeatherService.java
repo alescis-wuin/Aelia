@@ -23,6 +23,11 @@ public final class AeliaWeatherService implements WeatherService {
         this.provider = Objects.requireNonNull(provider, "provider");
     }
 
+
+    public WeatherDashboardProvider provider() {
+        return provider;
+    }
+
     @Override
     public DashboardSnapshot currentSnapshot() {
         return provider.currentSnapshot();

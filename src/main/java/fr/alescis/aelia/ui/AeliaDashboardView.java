@@ -1,8 +1,10 @@
 package fr.alescis.aelia.ui;
 
 import fr.alescis.aelia.model.CurrentWeather;
+import fr.alescis.aelia.model.DashboardDataStatus;
 import fr.alescis.aelia.model.DashboardSnapshot;
 import fr.alescis.aelia.model.LocationWeather;
+import fr.alescis.aelia.provider.WeatherProviderFactory;
 import fr.alescis.aelia.ui.components.AirQualityCard;
 import fr.alescis.aelia.ui.components.CardPane;
 import fr.alescis.aelia.ui.components.CurrentWeatherHero;
@@ -14,16 +16,19 @@ import fr.alescis.aelia.ui.components.PressureCard;
 import fr.alescis.aelia.ui.components.SidebarView;
 import fr.alescis.aelia.ui.components.SunPathCard;
 import fr.alescis.aelia.ui.components.TemperatureTrendCard;
+import fr.alescis.aelia.ui.components.TooltipSupport;
 import fr.alescis.aelia.ui.components.UvIndexCard;
 import fr.alescis.aelia.ui.components.WeatherIcons;
 import fr.alescis.aelia.ui.components.WindCard;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.Pane;
 
 import java.time.LocalTime;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Full desktop dashboard assembled according to the supplied 1374 x 854 mockup.
@@ -33,20 +38,27 @@ public class AeliaDashboardView extends Pane {
     public static final double DESIGN_HEIGHT = 854.0;
 
     private final DashboardSnapshot snapshot;
+    private final DashboardRuntimeActions runtimeActions;
     private final Pane mainLayer = new Pane();
     private final Pane overlayLayer = new Pane();
     private int selectedLocationIndex;
 
     @SuppressWarnings("this-escape")
     public AeliaDashboardView(DashboardSnapshot snapshot) {
-        this.snapshot = snapshot;
+        this(snapshot, DashboardRuntimeActions.NO_OP);
+    }
+
+    @SuppressWarnings("this-escape")
+    public AeliaDashboardView(DashboardSnapshot snapshot, DashboardRuntimeActions runtimeActions) {
+        this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
+        this.runtimeActions = Objects.requireNonNull(runtimeActions, "runtimeActions");
         this.selectedLocationIndex = selectedLocationIndex(snapshot);
         setPrefSize(DESIGN_WIDTH, DESIGN_HEIGHT);
         setMinSize(DESIGN_WIDTH, DESIGN_HEIGHT);
         setMaxSize(DESIGN_WIDTH, DESIGN_HEIGHT);
         getStyleClass().add("dashboard-root");
         setAccessibleRole(AccessibleRole.PARENT);
-        setAccessibleText("Aelia weather dashboard for Paris");
+        setAccessibleText("Aelia weather dashboard for " + snapshot.currentWeather().city());
         buildShell();
     }
 
@@ -95,6 +107,33 @@ public class AeliaDashboardView extends Pane {
         placeOnMain(new AirQualityCard(currentWeather.airQuality()), 852, 328);
         placeOnMain(new PollenCard(snapshot.pollenRisks()), 1120, 328);
         placeOnMain(new SunPathCard(currentWeather), 852, 594);
+        if (snapshot.dataStatus().visible()) {
+            placeOnMain(statusBanner(snapshot.dataStatus()), 852, 554);
+        }
+    }
+
+    private Pane statusBanner(DashboardDataStatus status) {
+        Pane banner = new Pane();
+        banner.setPrefSize(522, 30);
+        banner.getStyleClass().add(status.strictRemoteMode() && status.hasBlockingIssues() ? "remote-error-banner" : "remote-status-banner");
+
+        Label title = UiText.label(status.headline(), status.strictRemoteMode() && status.hasBlockingIssues()
+                ? "remote-error-title"
+                : "remote-status-title");
+        title.setLayoutX(12);
+        title.setLayoutY(4);
+        title.setPrefWidth(230);
+
+        Label details = UiText.label(status.details(), status.strictRemoteMode() && status.hasBlockingIssues()
+                ? "remote-error-details"
+                : "remote-status-details");
+        details.setLayoutX(250);
+        details.setLayoutY(4);
+        details.setPrefWidth(260);
+
+        banner.getChildren().addAll(title, details);
+        TooltipSupport.install(banner, status.details());
+        return banner;
     }
 
     private void selectLocation(int index) {
@@ -154,12 +193,73 @@ public class AeliaDashboardView extends Pane {
         mainLayer.setVisible(false);
         overlayLayer.getChildren().clear();
         overlayLayer.setVisible(true);
+        if ("settings".equals(id)) {
+            overlayLayer.getChildren().add(settingsView());
+            return;
+        }
         String title = switch (id) {
             case "map" -> "Carte";
-            case "settings" -> "Réglages";
             default -> id == null ? "Vue" : id;
         };
         overlayLayer.getChildren().add(inProgressView(title));
+    }
+
+    private Pane settingsView() {
+        CardPane card = new CardPane(1094, 822);
+        card.getStyleClass().add("work-in-progress-card");
+        card.setLayoutX(280);
+        card.setLayoutY(16);
+
+        Label heading = UiText.brand("RÉGLAGES");
+        heading.getStyleClass().add("work-in-progress-title");
+        heading.setAlignment(Pos.CENTER);
+        heading.setPrefWidth(1094);
+        heading.setLayoutX(0);
+        heading.setLayoutY(168);
+
+        Label section = UiText.label("Source des données météo", "settings-section-title");
+        section.setAlignment(Pos.CENTER);
+        section.setPrefWidth(1094);
+        section.setLayoutX(0);
+        section.setLayoutY(222);
+
+        Button simulated = providerButton("Simulation", WeatherProviderFactory.MODE_SIMULATED, 287);
+        Button auto = providerButton("Auto", WeatherProviderFactory.MODE_AUTO, 457);
+        Button openMeteo = providerButton("Open-Meteo", WeatherProviderFactory.MODE_OPEN_METEO, 627);
+        Button refresh = new Button("Rafraîchir maintenant");
+        refresh.getStyleClass().add("provider-refresh-button");
+        refresh.setLayoutX(430);
+        refresh.setLayoutY(342);
+        refresh.setPrefSize(234, 36);
+        refresh.setOnAction(event -> runtimeActions.refreshProviderData());
+        TooltipSupport.install(refresh, "Relance immédiatement le chargement des données avec la source sélectionnée.");
+
+        Label current = UiText.label("Mode actuel : " + snapshot.dataStatus().providerMode() + " · Source visible : " + snapshot.dataStatus().sourceLabel(), "settings-current-mode");
+        current.setAlignment(Pos.CENTER);
+        current.setPrefWidth(1094);
+        current.setLayoutX(0);
+        current.setLayoutY(404);
+
+        Label help = UiText.label("Simulation : aucune requête réseau · Auto : simulation puis API si disponible · Open-Meteo : erreurs distantes visibles en rouge avec repli historique partiel.", "settings-help");
+        help.setAlignment(Pos.CENTER);
+        help.setPrefWidth(900);
+        help.setLayoutX(97);
+        help.setLayoutY(446);
+        help.setWrapText(true);
+
+        card.getChildren().addAll(heading, section, simulated, auto, openMeteo, refresh, current, help);
+        return card;
+    }
+
+    private Button providerButton(String label, String mode, double x) {
+        Button button = new Button(label);
+        button.getStyleClass().add(snapshot.dataStatus().providerMode().equals(mode) ? "provider-mode-button-active" : "provider-mode-button");
+        button.setLayoutX(x);
+        button.setLayoutY(268);
+        button.setPrefSize(140, 38);
+        button.setOnAction(event -> runtimeActions.selectProviderMode(mode));
+        TooltipSupport.install(button, "Basculer vers le mode " + label + ".");
+        return button;
     }
 
     private Pane inProgressView(String title) {

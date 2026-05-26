@@ -7,7 +7,7 @@ import javafx.util.Duration;
 /**
  * Centralizes tooltip creation so every interactive dashboard element uses the same delay and behavior.
  */
-final class TooltipSupport {
+public final class TooltipSupport {
     private static final double SHOW_DELAY_MILLIS = 550.0;
     private static final double HIDE_DELAY_MILLIS = 90.0;
     private static final double SHOW_DURATION_SECONDS = 18.0;
@@ -16,7 +16,7 @@ final class TooltipSupport {
     private TooltipSupport() {
     }
 
-    static Tooltip install(Node node, String text) {
+    public static Tooltip install(Node node, String text) {
         if (node == null || text == null || text.isBlank()) {
             return null;
         }

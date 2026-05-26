@@ -545,3 +545,102 @@
     -fx-text-fill: #9AA7BA;
     -fx-font-size: 12px;
 }
+
+.remote-status-banner {
+    -fx-background-color: rgba(0, 229, 255, 0.08);
+    -fx-background-radius: 12px;
+    -fx-border-color: rgba(0, 229, 255, 0.35);
+    -fx-border-width: 1px;
+    -fx-border-radius: 12px;
+}
+
+.remote-error-banner {
+    -fx-background-color: rgba(255, 77, 79, 0.13);
+    -fx-background-radius: 12px;
+    -fx-border-color: rgba(255, 77, 79, 0.75);
+    -fx-border-width: 1px;
+    -fx-border-radius: 12px;
+}
+
+.remote-status-title,
+.remote-error-title {
+    -fx-font-size: 10px;
+    -fx-font-weight: 800;
+}
+
+.remote-status-title {
+    -fx-text-fill: #00E5FF;
+}
+
+.remote-error-title {
+    -fx-text-fill: #FF4D4F;
+}
+
+.remote-status-details,
+.remote-error-details {
+    -fx-font-size: 9px;
+    -fx-font-weight: 700;
+}
+
+.remote-status-details {
+    -fx-text-fill: #B7C0CF;
+}
+
+.remote-error-details {
+    -fx-text-fill: #FFC2C4;
+}
+
+.settings-section-title {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 15px;
+    -fx-font-weight: 800;
+}
+
+.provider-mode-button,
+.provider-mode-button-active,
+.provider-refresh-button {
+    -fx-background-radius: 12px;
+    -fx-border-radius: 12px;
+    -fx-font-size: 12px;
+    -fx-font-weight: 800;
+    -fx-padding: 0 14 0 14;
+}
+
+.provider-mode-button {
+    -fx-background-color: rgba(255, 255, 255, 0.04);
+    -fx-border-color: rgba(255, 255, 255, 0.10);
+    -fx-text-fill: #B7C0CF;
+}
+
+.provider-mode-button:hover {
+    -fx-border-color: rgba(0, 229, 255, 0.55);
+    -fx-text-fill: #FFFFFF;
+}
+
+.provider-mode-button-active {
+    -fx-background-color: rgba(0, 229, 255, 0.10);
+    -fx-border-color: #00E5FF;
+    -fx-text-fill: #00E5FF;
+}
+
+.provider-refresh-button {
+    -fx-background-color: rgba(255, 214, 0, 0.10);
+    -fx-border-color: rgba(255, 214, 0, 0.55);
+    -fx-text-fill: #FFD600;
+}
+
+.provider-refresh-button:hover {
+    -fx-border-color: #FFD600;
+    -fx-text-fill: #FFFFFF;
+}
+
+.settings-current-mode {
+    -fx-text-fill: #00E5FF;
+    -fx-font-size: 12px;
+    -fx-font-weight: 800;
+}
+
+.settings-help {
+    -fx-text-fill: #9AA7BA;
+    -fx-font-size: 12px;
+}

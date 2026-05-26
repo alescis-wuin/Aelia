@@ -3,4 +3,7 @@ target/
 *.iml
 *.log
 .DS_Store
+.env
+.env.*
+!.env.example
 src/main/resources/fr/alescis/aelia/fonts/*.ttf
