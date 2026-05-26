@@ -71,9 +71,6 @@ public final class PressureCard extends CardPane {
         getChildren().addAll(title, base, arc, dot, min, max, centerText, trendLabel, normal);
         String tooltipText = "Pression atmosphérique " + pressureHpa + " hPa · " + trend + " · normale 1013 hPa";
         TooltipSupport.install(this, tooltipText);
-        TooltipSupport.install(base, tooltipText);
-        TooltipSupport.install(arc, tooltipText);
-        TooltipSupport.install(dot, tooltipText);
         AccessibilitySupport.describe(this, AccessibleRole.TEXT,
                 "Pression atmosphérique " + pressureHpa + " hectopascals, " + trend,
                 "Carte de pression atmosphérique.");

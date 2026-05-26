@@ -16,15 +16,6 @@ public record ApiLimit(String name, String period, String value) {
         }
     }
 
-    /**
-     * Creates a metered limit entry from a structured period.
-     *
-     * @param name displayed limit name
-     * @param period measurement window
-     * @param amount allowed amount for the window
-     * @param unit displayed unit
-     * @return immutable API limit entry
-     */
     public static ApiLimit limited(String name, LimitPeriod period, int amount, String unit) {
         if (period == null) {
             throw new IllegalArgumentException("Limit period is required.");
@@ -36,14 +27,6 @@ public record ApiLimit(String name, String period, String value) {
         return new ApiLimit(name, period.label(), amount + " " + normalizedUnit);
     }
 
-    /**
-     * Creates an unmetered limit entry from a structured period.
-     *
-     * @param name displayed limit name
-     * @param period measurement window
-     * @param unit displayed unit
-     * @return immutable API limit entry
-     */
     public static ApiLimit unmetered(String name, LimitPeriod period, String unit) {
         if (period == null) {
             throw new IllegalArgumentException("Limit period is required.");

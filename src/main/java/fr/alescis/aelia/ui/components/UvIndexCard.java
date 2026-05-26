@@ -59,12 +59,12 @@ public final class UvIndexCard extends CardPane {
             getChildren().add(label);
         }
 
-        buildInlineAlert(advice);
+        buildInlineAlert(uvIndex, advice);
         TooltipSupport.install(this, "Indice UV " + uvIndex + " · " + advice);
-        AccessibilitySupport.describe(this, AccessibleRole.PARENT, "Indice ultraviolet " + uvIndex + ". Alerte ultraviolet élevée.", advice);
+        AccessibilitySupport.describe(this, AccessibleRole.PARENT, "Indice ultraviolet " + uvIndex, advice);
     }
 
-    private void buildInlineAlert(String advice) {
+    private void buildInlineAlert(int uvIndex, String advice) {
         Rectangle background = new Rectangle(484, 38);
         background.setLayoutX(20);
         background.setLayoutY(76);
@@ -79,7 +79,7 @@ public final class UvIndexCard extends CardPane {
         exclamation.setLayoutX(38);
         exclamation.setLayoutY(86);
 
-        Label title = UiText.label("Alerte UV élevée", "alert-title");
+        Label title = UiText.label(alertTitle(uvIndex), "alert-title");
         title.setLayoutX(70);
         title.setLayoutY(82);
         Label body = UiText.label(advice, "alert-body");
@@ -92,10 +92,26 @@ public final class UvIndexCard extends CardPane {
         details.setLayoutX(424);
         details.setLayoutY(90);
         details.setFocusTraversable(true);
-        details.setAccessibleText("Voir les détails de l'alerte ultraviolet");
+        details.setAccessibleText("Voir les détails de l'indice ultraviolet");
 
-        TooltipSupport.install(background, "Alerte UV élevée · " + advice);
-        TooltipSupport.install(details, "Afficher les détails de l'alerte UV");
+        TooltipSupport.install(background, alertTitle(uvIndex) + " · " + advice);
+        TooltipSupport.install(details, "Afficher les détails de l'indice UV");
         getChildren().addAll(background, icon, exclamation, title, body, details);
+    }
+
+    private String alertTitle(int uvIndex) {
+        if (uvIndex <= 2) {
+            return "UV faible";
+        }
+        if (uvIndex <= 5) {
+            return "UV modéré";
+        }
+        if (uvIndex <= 7) {
+            return "UV élevé";
+        }
+        if (uvIndex <= 10) {
+            return "UV très élevé";
+        }
+        return "UV extrême";
     }
 }

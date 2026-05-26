@@ -1,15 +1,14 @@
 # Aelia
 
-Aelia is a Java 21 bytecode target, JavaFX, Maven and AtlantaFX weather dashboard prototype.
+Aelia is a JavaFX, Maven and AtlantaFX desktop weather dashboard prototype.
 
-This iteration keeps the supplied desktop weather mockup visually stable while supporting both the deterministic simulated provider and an optional Open-Meteo remote provider.
+This package adds a functional **Carte** tab backed by JavaFX `WebView`, Leaflet, OpenStreetMap raster tiles and Nominatim reverse geocoding. The dashboard data remains simulated; selected map locations are added to the local sidebar list and can be selected immediately.
 
 ## Requirements
 
-- Java 21 or newer
+- Java 21 or newer. Java 26 is supported as a runtime.
 - Maven 3.9+
-- Git
-- Make, optional
+- Internet access for the map tiles, Leaflet CDN assets and reverse geocoding.
 
 ## Run
 
@@ -17,58 +16,22 @@ This iteration keeps the supplied desktop weather mockup visually stable while s
 mvn javafx:run
 ```
 
-
-## Remote provider
-
-```bash
-mvn -Daelia.weather.provider=openmeteo \
-  -Daelia.openmeteo.latitude=49.4431 \
-  -Daelia.openmeteo.longitude=1.0993 \
-  -Daelia.openmeteo.city=Rouen \
-  -Daelia.openmeteo.country=France \
-  -Daelia.openmeteo.timezone=Europe/Paris \
-  javafx:run
-```
-
-Environment variables are also supported when Maven properties are left blank, for example `AELIA_WEATHER_PROVIDER=openmeteo mvn javafx:run`.
-
 ## Test
 
 ```bash
 mvn test
 ```
 
-## Verify
+## Map usage
 
-```bash
-mvn verify
-```
+1. Open the **CARTE** tab.
+2. Click a location on the world map.
+3. Wait for the zone name to resolve, or keep the coordinate-based fallback.
+4. Click **Ajouter à mes zones**.
+5. The zone is appended to the sidebar and selected.
 
-## Optional local fonts
+The map intentionally does not prefetch/offline-cache areas. It only displays tiles for the current human-driven viewport.
 
-The project is configured to use Luciole for general text and Hack for data values when local font files are present under `src/main/resources/fr/alescis/aelia/fonts/`.
+## Attribution
 
-```bash
-make import-fonts \
-  LUCIOLE_ZIP=/path/to/Luciole_webfonts.zip \
-  HACK_ZIP=/path/to/Hack-v3.003-ttf.zip
-```
-
-The application remains usable with system fallbacks when the fonts are not imported.
-
-## Documentation
-
-Versioned documentation is stored under `docs/V0.3.13/` and `docs/V0.3.14/` for the latest remote-provider iterations.
-
-## Non-modular runtime
-
-This iteration intentionally uses a classpath-based JavaFX launch instead of `module-info.java`. This keeps the UI-heavy version easier to compile in Maven and IntelliJ while the dashboard components are still evolving.
-
-## V0.3.9 remote API readiness fix
-
-This iteration removes the previously hard-coded gauge progressions from the wind, pressure, air-quality and sun-path cards, introduces typed temporal values in `CurrentWeather`, and keeps formatted strings in the UI formatting layer.
-
-
-## V0.3.14 Open-Meteo diagnostics and Maven forwarding
-
-This iteration forwards Maven `-D` settings to the JavaFX runtime, makes strict Open-Meteo mode load remote data synchronously, and prints provider diagnostics so remote failures are visible in the console.
+The map view displays OpenStreetMap attribution on the map. Reverse geocoding uses Nominatim only after user-triggered clicks and identifies the application with a stable User-Agent.

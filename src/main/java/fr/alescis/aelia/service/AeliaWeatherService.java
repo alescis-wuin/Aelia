@@ -16,16 +16,10 @@ import java.util.Objects;
  * Application service that isolates controllers and views from provider implementations.
  */
 public final class AeliaWeatherService implements WeatherService {
-
     private final WeatherDashboardProvider provider;
 
     public AeliaWeatherService(WeatherDashboardProvider provider) {
         this.provider = Objects.requireNonNull(provider, "provider");
-    }
-
-
-    public WeatherDashboardProvider provider() {
-        return provider;
     }
 
     @Override

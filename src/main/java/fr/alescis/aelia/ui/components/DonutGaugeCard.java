@@ -74,8 +74,6 @@ public final class DonutGaugeCard extends CardPane {
         getChildren().addAll(base, progress, centerText, statusLabel, hintLabel);
         String tooltipText = title + " : " + value + (unit.isBlank() ? "" : " " + unit) + " · " + status + " · " + rightHint;
         TooltipSupport.install(this, tooltipText);
-        TooltipSupport.install(base, tooltipText);
-        TooltipSupport.install(progress, tooltipText);
         AccessibilitySupport.describe(this, AccessibleRole.TEXT, accessibleText, "Carte de mesure avec jauge circulaire.");
     }
 

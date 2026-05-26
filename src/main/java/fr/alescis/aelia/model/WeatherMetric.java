@@ -29,20 +29,10 @@ public record WeatherMetric(
         }
     }
 
-    /**
-     * Compatibility alias for the upper realistic bound used by dashboard views.
-     *
-     * @return maximum realistic value
-     */
     public double maximum() {
         return maximumRealisticValue;
     }
 
-    /**
-     * Compatibility alias for the lower realistic bound used by dashboard views.
-     *
-     * @return minimum realistic value
-     */
     public double minimum() {
         return minimumRealisticValue;
     }

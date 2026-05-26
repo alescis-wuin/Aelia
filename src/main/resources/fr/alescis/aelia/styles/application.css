@@ -22,17 +22,11 @@
     -fx-border-radius: 18px;
 }
 
-.hero-card {
+.hero-card,
+.work-in-progress-card,
+.map-view-card {
     -fx-background-color: #101B31;
     -fx-background-radius: 22px;
-}
-
-.alert-card {
-    -fx-background-color: rgba(255, 109, 0, 0.08);
-    -fx-background-radius: 14px;
-    -fx-border-color: rgba(255, 109, 0, 0.55);
-    -fx-border-width: 1px;
-    -fx-border-radius: 14px;
 }
 
 .brand-text {
@@ -62,7 +56,8 @@
 .forecast-uv-high,
 .donut-value,
 .pressure-value,
-.air-value {
+.air-value,
+.map-coordinates {
     -fx-font-family: "Hack", "JetBrains Mono", "Consolas", monospace;
 }
 
@@ -109,7 +104,8 @@
 .hour-chip-active:focused,
 .forecast-row:focused,
 .forecast-row-active:focused,
-.alert-link:focused {
+.alert-link:focused,
+.map-add-button:focused {
     -fx-border-color: #FFD600;
     -fx-border-width: 2px;
 }
@@ -419,10 +415,6 @@
     -fx-font-weight: 700;
 }
 
-.alert-title {
-    -fx-font-size: 12px;
-}
-
 .alert-body {
     -fx-text-fill: #B6C0CE;
     -fx-font-size: 10px;
@@ -523,16 +515,10 @@
     -fx-stroke-dash-array: 3 5;
 }
 
-.work-in-progress-card {
-    -fx-background-color: #101B31;
-    -fx-background-radius: 22px;
-}
-
 .work-in-progress-title {
     -fx-text-fill: #FFFFFF;
     -fx-font-size: 18px;
     -fx-font-weight: 800;
-    -fx-letter-spacing: 0.25em;
 }
 
 .work-in-progress-body {
@@ -546,101 +532,81 @@
     -fx-font-size: 12px;
 }
 
-.remote-status-banner {
-    -fx-background-color: rgba(0, 229, 255, 0.08);
-    -fx-background-radius: 12px;
-    -fx-border-color: rgba(0, 229, 255, 0.35);
-    -fx-border-width: 1px;
-    -fx-border-radius: 12px;
-}
-
-.remote-error-banner {
-    -fx-background-color: rgba(255, 77, 79, 0.13);
-    -fx-background-radius: 12px;
-    -fx-border-color: rgba(255, 77, 79, 0.75);
-    -fx-border-width: 1px;
-    -fx-border-radius: 12px;
-}
-
-.remote-status-title,
-.remote-error-title {
-    -fx-font-size: 10px;
+.map-title {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 12px;
     -fx-font-weight: 800;
 }
 
-.remote-status-title {
+.map-body {
+    -fx-text-fill: #9AA7BA;
+    -fx-font-size: 12px;
+}
+
+.map-attribution {
+    -fx-text-fill: #7F8A9C;
+    -fx-font-size: 10px;
+}
+
+.map-frame {
+    -fx-fill: #0B1220;
+    -fx-stroke: #1E2E48;
+    -fx-stroke-width: 1px;
+    -fx-arc-width: 18px;
+    -fx-arc-height: 18px;
+}
+
+.map-panel {
+    -fx-background-color: #0E1724;
+    -fx-background-radius: 18px;
+    -fx-border-color: rgba(0, 229, 255, 0.16);
+    -fx-border-radius: 18px;
+    -fx-border-width: 1px;
+}
+
+.map-selection-title {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 18px;
+    -fx-font-weight: 800;
+    -fx-wrap-text: true;
+}
+
+.map-coordinates {
     -fx-text-fill: #00E5FF;
-}
-
-.remote-error-title {
-    -fx-text-fill: #FF4D4F;
-}
-
-.remote-status-details,
-.remote-error-details {
-    -fx-font-size: 9px;
+    -fx-font-size: 12px;
     -fx-font-weight: 700;
 }
 
-.remote-status-details {
-    -fx-text-fill: #B7C0CF;
-}
-
-.remote-error-details {
-    -fx-text-fill: #FFC2C4;
-}
-
-.settings-section-title {
-    -fx-text-fill: #FFFFFF;
-    -fx-font-size: 15px;
-    -fx-font-weight: 800;
-}
-
-.provider-mode-button,
-.provider-mode-button-active,
-.provider-refresh-button {
-    -fx-background-radius: 12px;
-    -fx-border-radius: 12px;
-    -fx-font-size: 12px;
-    -fx-font-weight: 800;
-    -fx-padding: 0 14 0 14;
-}
-
-.provider-mode-button {
-    -fx-background-color: rgba(255, 255, 255, 0.04);
-    -fx-border-color: rgba(255, 255, 255, 0.10);
-    -fx-text-fill: #B7C0CF;
-}
-
-.provider-mode-button:hover {
-    -fx-border-color: rgba(0, 229, 255, 0.55);
-    -fx-text-fill: #FFFFFF;
-}
-
-.provider-mode-button-active {
-    -fx-background-color: rgba(0, 229, 255, 0.10);
-    -fx-border-color: #00E5FF;
-    -fx-text-fill: #00E5FF;
-}
-
-.provider-refresh-button {
-    -fx-background-color: rgba(255, 214, 0, 0.10);
-    -fx-border-color: rgba(255, 214, 0, 0.55);
-    -fx-text-fill: #FFD600;
-}
-
-.provider-refresh-button:hover {
-    -fx-border-color: #FFD600;
-    -fx-text-fill: #FFFFFF;
-}
-
-.settings-current-mode {
-    -fx-text-fill: #00E5FF;
-    -fx-font-size: 12px;
-    -fx-font-weight: 800;
-}
-
-.settings-help {
+.map-status {
     -fx-text-fill: #9AA7BA;
     -fx-font-size: 12px;
+}
+
+.map-note {
+    -fx-text-fill: #D9E2F2;
+    -fx-font-size: 12px;
+}
+
+.map-note-muted {
+    -fx-text-fill: #7F8A9C;
+    -fx-font-size: 11px;
+}
+
+.map-add-button {
+    -fx-background-color: rgba(0, 229, 255, 0.10);
+    -fx-background-radius: 12px;
+    -fx-border-color: rgba(0, 229, 255, 0.70);
+    -fx-border-radius: 12px;
+    -fx-border-width: 1px;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 12px;
+    -fx-font-weight: 800;
+}
+
+.map-add-button:hover {
+    -fx-background-color: rgba(0, 229, 255, 0.18);
+}
+
+.map-add-button:disabled {
+    -fx-opacity: 0.45;
 }

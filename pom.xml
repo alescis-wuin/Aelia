@@ -6,9 +6,9 @@
 
     <groupId>fr.alescis</groupId>
     <artifactId>aelia</artifactId>
-    <version>0.3.21-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <name>Aelia</name>
-    <description>Accessible JavaFX weather dashboard inspired by a high-contrast desktop mockup.</description>
+    <description>Accessible JavaFX weather dashboard with a free interactive world map prototype.</description>
     <url>https://github.com/alescis-wuin/Aelia</url>
     <inceptionYear>2026</inceptionYear>
 
@@ -20,64 +20,23 @@
         </license>
     </licenses>
 
-    <developers>
-        <developer>
-            <id>alescis-wuin</id>
-            <name>alescis-wuin</name>
-        </developer>
-    </developers>
-
-    <scm>
-        <connection>scm:git:https://github.com/alescis-wuin/Aelia.git</connection>
-        <developerConnection>scm:git:git@github.com:alescis-wuin/Aelia.git</developerConnection>
-        <url>https://github.com/alescis-wuin/Aelia</url>
-        <tag>HEAD</tag>
-    </scm>
-
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <javafx.version>21.0.7</javafx.version>
         <atlantafx.version>2.1.0</atlantafx.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
-        <aelia.env.path></aelia.env.path>
-        <aelia.weather.provider></aelia.weather.provider>
-        <aelia.openmeteo.latitude></aelia.openmeteo.latitude>
-        <aelia.openmeteo.longitude></aelia.openmeteo.longitude>
-        <aelia.openmeteo.city></aelia.openmeteo.city>
-        <aelia.openmeteo.country></aelia.openmeteo.country>
-        <aelia.openmeteo.timezone></aelia.openmeteo.timezone>
-        <aelia.openmeteo.apiKey></aelia.openmeteo.apiKey>
-        <aelia.openmeteo.connectTimeoutSeconds></aelia.openmeteo.connectTimeoutSeconds>
-        <aelia.openmeteo.requestTimeoutSeconds></aelia.openmeteo.requestTimeoutSeconds>
-        <aelia.openmeteo.archiveFallbackLagDays></aelia.openmeteo.archiveFallbackLagDays>
-        <aelia.metnorway.enabled></aelia.metnorway.enabled>
-        <aelia.metnorway.endpoint></aelia.metnorway.endpoint>
-        <aelia.weatherapi.enabled></aelia.weatherapi.enabled>
-        <aelia.weatherapi.endpoint></aelia.weatherapi.endpoint>
-        <aelia.weatherapi.apiKey></aelia.weatherapi.apiKey>
-        <aelia.openweather.enabled></aelia.openweather.enabled>
-        <aelia.openweather.currentEndpoint></aelia.openweather.currentEndpoint>
-        <aelia.openweather.forecastEndpoint></aelia.openweather.forecastEndpoint>
-        <aelia.openweather.apiKey></aelia.openweather.apiKey>
-        <aelia.visualcrossing.enabled></aelia.visualcrossing.enabled>
-        <aelia.visualcrossing.timelineEndpoint></aelia.visualcrossing.timelineEndpoint>
-        <aelia.visualcrossing.apiKey></aelia.visualcrossing.apiKey>
-        <aelia.weatherbit.enabled></aelia.weatherbit.enabled>
-        <aelia.weatherbit.currentEndpoint></aelia.weatherbit.currentEndpoint>
-        <aelia.weatherbit.dailyEndpoint></aelia.weatherbit.dailyEndpoint>
-        <aelia.weatherbit.apiKey></aelia.weatherbit.apiKey>
-        <aelia.pirateweather.enabled></aelia.pirateweather.enabled>
-        <aelia.pirateweather.endpoint></aelia.pirateweather.endpoint>
-        <aelia.pirateweather.apiKey></aelia.pirateweather.apiKey>
-        <aelia.diagnostics>true</aelia.diagnostics>
-        <java.net.preferIPv4Stack>false</java.net.preferIPv4Stack>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-web</artifactId>
             <version>${javafx.version}</version>
         </dependency>
         <dependency>
@@ -117,41 +76,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>fr.alescis.aelia.AeliaApplication</mainClass>
-                    <options>
-                        <option>-Daelia.env.path=${aelia.env.path}</option>
-                        <option>-Daelia.weather.provider=${aelia.weather.provider}</option>
-                        <option>-Daelia.openmeteo.latitude=${aelia.openmeteo.latitude}</option>
-                        <option>-Daelia.openmeteo.longitude=${aelia.openmeteo.longitude}</option>
-                        <option>-Daelia.openmeteo.city=${aelia.openmeteo.city}</option>
-                        <option>-Daelia.openmeteo.country=${aelia.openmeteo.country}</option>
-                        <option>-Daelia.openmeteo.timezone=${aelia.openmeteo.timezone}</option>
-                        <option>-Daelia.openmeteo.apiKey=${aelia.openmeteo.apiKey}</option>
-                        <option>-Daelia.openmeteo.connectTimeoutSeconds=${aelia.openmeteo.connectTimeoutSeconds}</option>
-                        <option>-Daelia.openmeteo.requestTimeoutSeconds=${aelia.openmeteo.requestTimeoutSeconds}</option>
-                        <option>-Daelia.openmeteo.archiveFallbackLagDays=${aelia.openmeteo.archiveFallbackLagDays}</option>
-                        <option>-Daelia.metnorway.enabled=${aelia.metnorway.enabled}</option>
-                        <option>-Daelia.metnorway.endpoint=${aelia.metnorway.endpoint}</option>
-                        <option>-Daelia.weatherapi.enabled=${aelia.weatherapi.enabled}</option>
-                        <option>-Daelia.weatherapi.endpoint=${aelia.weatherapi.endpoint}</option>
-                        <option>-Daelia.weatherapi.apiKey=${aelia.weatherapi.apiKey}</option>
-                        <option>-Daelia.openweather.enabled=${aelia.openweather.enabled}</option>
-                        <option>-Daelia.openweather.currentEndpoint=${aelia.openweather.currentEndpoint}</option>
-                        <option>-Daelia.openweather.forecastEndpoint=${aelia.openweather.forecastEndpoint}</option>
-                        <option>-Daelia.openweather.apiKey=${aelia.openweather.apiKey}</option>
-                        <option>-Daelia.visualcrossing.enabled=${aelia.visualcrossing.enabled}</option>
-                        <option>-Daelia.visualcrossing.timelineEndpoint=${aelia.visualcrossing.timelineEndpoint}</option>
-                        <option>-Daelia.visualcrossing.apiKey=${aelia.visualcrossing.apiKey}</option>
-                        <option>-Daelia.weatherbit.enabled=${aelia.weatherbit.enabled}</option>
-                        <option>-Daelia.weatherbit.currentEndpoint=${aelia.weatherbit.currentEndpoint}</option>
-                        <option>-Daelia.weatherbit.dailyEndpoint=${aelia.weatherbit.dailyEndpoint}</option>
-                        <option>-Daelia.weatherbit.apiKey=${aelia.weatherbit.apiKey}</option>
-                        <option>-Daelia.pirateweather.enabled=${aelia.pirateweather.enabled}</option>
-                        <option>-Daelia.pirateweather.endpoint=${aelia.pirateweather.endpoint}</option>
-                        <option>-Daelia.pirateweather.apiKey=${aelia.pirateweather.apiKey}</option>
-                        <option>-Daelia.diagnostics=${aelia.diagnostics}</option>
-                        <option>-Djava.net.preferIPv4Stack=${java.net.preferIPv4Stack}</option>
-                    </options>
+                    <mainClass>fr.alescis.aelia/fr.alescis.aelia.AeliaApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>
