@@ -2,7 +2,6 @@ module fr.alescis.aelia {
     requires java.net.http;
     requires javafx.controls;
     requires javafx.graphics;
-    requires javafx.web;
     requires atlantafx.base;
 
     exports fr.alescis.aelia;
