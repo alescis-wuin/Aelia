@@ -7,49 +7,89 @@ import fr.alescis.aelia.ui.AccessibilitySupport;
 import fr.alescis.aelia.ui.Palette;
 import fr.alescis.aelia.ui.UiText;
 import javafx.application.Platform;
-import javafx.concurrent.Worker;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
  * Interactive world map used to select and add user zones from the Carte tab.
+ *
+ * <p>The map is rendered natively with JavaFX image tiles instead of WebView so it
+ * remains stable inside the scaled dashboard shell.</p>
  */
 public final class WorldMapView extends CardPane implements AutoCloseable {
     private static final double CARD_WIDTH = 1094.0;
     private static final double CARD_HEIGHT = 822.0;
     private static final double MAP_WIDTH = 760.0;
     private static final double MAP_HEIGHT = 710.0;
-    private static final String TILE_URL_TEMPLATE = System.getProperty("aelia.map.tileUrl", "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+    private static final double TILE_SIZE = 256.0;
+    private static final int MIN_ZOOM = 2;
+    private static final int MAX_ZOOM = 18;
+    private static final double MAX_MERCATOR_LATITUDE = 85.05112878;
+    private static final int MAX_CACHED_TILES = 384;
+    private static final String TILE_URL_TEMPLATE = System.getProperty(
+            "aelia.map.tileUrl",
+            "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    );
 
     private final Consumer<LocationWeather> addLocationHandler;
     private final NominatimReverseGeocoder reverseGeocoder = new NominatimReverseGeocoder();
     private final AtomicInteger selectionVersion = new AtomicInteger();
+    private final Map<String, Image> tileCache = new LinkedHashMap<>(128, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) {
+            return size() > MAX_CACHED_TILES;
+        }
+    };
 
+    private final Pane mapViewport = new Pane();
+    private final Pane tileLayer = new Pane();
+    private final Pane markerLayer = new Pane();
     private final Label selectedName = UiText.label("Cliquez sur la carte", "map-selection-title");
     private final Label selectedCoordinates = UiText.label("Aucune coordonnée sélectionnée", "map-coordinates");
-    private final Label status = UiText.label("La carte utilise Leaflet et OpenStreetMap.", "map-status");
+    private final Label status = UiText.label("La carte utilise des tuiles OpenStreetMap rendues en JavaFX.", "map-status");
     private final Button addButton = new Button("Ajouter à mes zones");
 
     private ReverseGeocodeResult selectedResult;
+    private int zoom = 2;
+    private double centerLatitude = 20.0;
+    private double centerLongitude = 0.0;
+    private double centerWorldX;
+    private double centerWorldY;
+    private double pressSceneX;
+    private double pressSceneY;
+    private double pressCenterWorldX;
+    private double pressCenterWorldY;
+    private boolean panning;
 
     public WorldMapView(Consumer<LocationWeather> addLocationHandler) {
         super(CARD_WIDTH, CARD_HEIGHT);
         this.addLocationHandler = Objects.requireNonNull(addLocationHandler, "addLocationHandler");
         getStyleClass().add("map-view-card");
+        Point center = project(centerLatitude, centerLongitude, zoom);
+        centerWorldX = center.x();
+        centerWorldY = center.y();
         buildHeader();
         buildMap();
         buildSelectionPanel();
+        renderMap();
         AccessibilitySupport.describe(this, AccessibleRole.PARENT, "Carte du monde", "Sélectionne une zone depuis une carte interactive puis l'ajoute aux lieux enregistrés.");
     }
 
@@ -59,12 +99,12 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         title.setLayoutX(24);
         title.setLayoutY(18);
 
-        Label hint = UiText.label("Cliquez sur un point de la carte pour le résoudre avec Nominatim, puis ajoutez-le à la barre latérale.", "map-body");
+        Label hint = UiText.label("Déplacez la carte, zoomez, puis cliquez sur un point pour le résoudre avec Nominatim et l'ajouter à la barre latérale.", "map-body");
         hint.setLayoutX(24);
         hint.setLayoutY(44);
         hint.setPrefWidth(720);
 
-        Label attribution = UiText.label("© OpenStreetMap contributors · Leaflet · Nominatim", "map-attribution");
+        Label attribution = UiText.label("© OpenStreetMap contributors · Nominatim", "map-attribution");
         attribution.setLayoutX(800);
         attribution.setLayoutY(44);
         attribution.setPrefWidth(260);
@@ -80,28 +120,81 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         frame.setArcHeight(18);
         frame.getStyleClass().add("map-frame");
 
-        WebView webView = new WebView();
-        webView.setContextMenuEnabled(false);
-        webView.setLayoutX(25);
-        webView.setLayoutY(83);
-        webView.setPrefSize(MAP_WIDTH, MAP_HEIGHT);
-        webView.setMinSize(MAP_WIDTH, MAP_HEIGHT);
-        webView.setMaxSize(MAP_WIDTH, MAP_HEIGHT);
-        WebEngine engine = webView.getEngine();
-        engine.setUserAgent(NominatimReverseGeocoder.USER_AGENT);
-        engine.setJavaScriptEnabled(true);
-        engine.setOnAlert(event -> handleMapAlert(event.getData()));
-        engine.getLoadWorker().stateProperty().addListener((observable, oldState, newState) -> {
-            if (newState == Worker.State.SUCCEEDED) {
-                engine.executeScript("if (window.aeliaMapReady) { window.aeliaMapReady(); }");
-                status.setText("Carte chargée. Cliquez sur une zone.");
-            } else if (newState == Worker.State.FAILED) {
-                status.setText("Carte indisponible. Vérifiez la connexion internet.");
-            }
-        });
-        engine.loadContent(mapHtml(), "text/html");
+        mapViewport.getStyleClass().add("map-native-viewport");
+        mapViewport.setLayoutX(25);
+        mapViewport.setLayoutY(83);
+        mapViewport.setPrefSize(MAP_WIDTH, MAP_HEIGHT);
+        mapViewport.setMinSize(MAP_WIDTH, MAP_HEIGHT);
+        mapViewport.setMaxSize(MAP_WIDTH, MAP_HEIGHT);
+        Rectangle clip = new Rectangle(MAP_WIDTH, MAP_HEIGHT);
+        clip.setArcWidth(16);
+        clip.setArcHeight(16);
+        mapViewport.setClip(clip);
 
-        getChildren().addAll(frame, webView);
+        tileLayer.setMouseTransparent(true);
+        markerLayer.setMouseTransparent(true);
+        mapViewport.getChildren().addAll(tileLayer, markerLayer);
+        installMapInteractions();
+
+        getChildren().addAll(frame, mapViewport);
+        addZoomButton("+", 44, 110, 1);
+        addZoomButton("−", 44, 150, -1);
+    }
+
+    private void addZoomButton(String text, double x, double y, int delta) {
+        Button button = new Button(text);
+        button.getStyleClass().add("map-zoom-button");
+        button.setLayoutX(x);
+        button.setLayoutY(y);
+        button.setPrefSize(34, 34);
+        button.setFocusTraversable(true);
+        button.setOnAction(event -> changeZoom(delta));
+        getChildren().add(button);
+    }
+
+    private void installMapInteractions() {
+        mapViewport.setOnMousePressed(event -> {
+            if (event.getButton() != MouseButton.PRIMARY) {
+                return;
+            }
+            pressSceneX = event.getSceneX();
+            pressSceneY = event.getSceneY();
+            pressCenterWorldX = centerWorldX;
+            pressCenterWorldY = centerWorldY;
+            panning = false;
+            event.consume();
+        });
+        mapViewport.setOnMouseDragged(event -> {
+            double deltaX = event.getSceneX() - pressSceneX;
+            double deltaY = event.getSceneY() - pressSceneY;
+            if (Math.hypot(deltaX, deltaY) > 3.0) {
+                panning = true;
+            }
+            centerWorldX = wrapWorldX(pressCenterWorldX - deltaX);
+            centerWorldY = clampCenterWorldY(pressCenterWorldY - deltaY);
+            GeoCoordinate center = unproject(centerWorldX, centerWorldY, zoom);
+            centerLatitude = center.latitude();
+            centerLongitude = center.longitude();
+            renderMap();
+            event.consume();
+        });
+        mapViewport.setOnMouseReleased(event -> {
+            if (event.getButton() != MouseButton.PRIMARY) {
+                return;
+            }
+            if (!panning) {
+                GeoCoordinate coordinate = screenToCoordinate(event.getX(), event.getY());
+                selectCoordinates(coordinate.latitude(), coordinate.longitude());
+            }
+            event.consume();
+        });
+        mapViewport.addEventFilter(ScrollEvent.SCROLL, event -> {
+            if (Math.abs(event.getDeltaY()) < 1.0) {
+                return;
+            }
+            changeZoom(event.getDeltaY() > 0.0 ? 1 : -1);
+            event.consume();
+        });
     }
 
     private void buildSelectionPanel() {
@@ -137,7 +230,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         Label noteTitle = UiText.section("Notes");
         noteTitle.setLayoutX(18);
         noteTitle.setLayoutY(292);
-        Label note = UiText.label("Les données météo restent simulées dans cette itération. Les coordonnées seront réutilisables par un futur provider météo distant.", "map-note");
+        Label note = UiText.label("La carte charge uniquement les tuiles visibles. Les coordonnées sélectionnées seront réutilisables par un futur provider météo distant.", "map-note");
         note.setLayoutX(18);
         note.setLayoutY(326);
         note.setPrefWidth(222);
@@ -153,22 +246,106 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         getChildren().add(panel);
     }
 
-    private void handleMapAlert(String data) {
-        if (data == null || !data.startsWith("aelia-map-click:")) {
+    private void renderMap() {
+        centerWorldX = wrapWorldX(centerWorldX);
+        centerWorldY = clampCenterWorldY(centerWorldY);
+        tileLayer.getChildren().clear();
+        markerLayer.getChildren().clear();
+
+        int tileCount = tileCount();
+        double topLeftX = centerWorldX - MAP_WIDTH / 2.0;
+        double topLeftY = centerWorldY - MAP_HEIGHT / 2.0;
+        int startTileX = (int) Math.floor(topLeftX / TILE_SIZE) - 1;
+        int endTileX = (int) Math.floor((topLeftX + MAP_WIDTH) / TILE_SIZE) + 1;
+        int startTileY = Math.max(0, (int) Math.floor(topLeftY / TILE_SIZE) - 1);
+        int endTileY = Math.min(tileCount - 1, (int) Math.floor((topLeftY + MAP_HEIGHT) / TILE_SIZE) + 1);
+
+        for (int tileY = startTileY; tileY <= endTileY; tileY++) {
+            for (int tileX = startTileX; tileX <= endTileX; tileX++) {
+                int wrappedTileX = Math.floorMod(tileX, tileCount);
+                ImageView imageView = new ImageView(tileImage(zoom, wrappedTileX, tileY));
+                imageView.setFitWidth(TILE_SIZE);
+                imageView.setFitHeight(TILE_SIZE);
+                imageView.setSmooth(false);
+                imageView.setPreserveRatio(false);
+                imageView.setLayoutX(Math.round(tileX * TILE_SIZE - topLeftX));
+                imageView.setLayoutY(Math.round(tileY * TILE_SIZE - topLeftY));
+                imageView.setMouseTransparent(true);
+                tileLayer.getChildren().add(imageView);
+            }
+        }
+        renderMarker();
+    }
+
+    private void renderMarker() {
+        if (selectedResult == null) {
             return;
         }
-        String payload = data.substring("aelia-map-click:".length());
-        String[] coordinates = payload.split(",", 2);
-        if (coordinates.length != 2) {
+        Point point = coordinateToScreen(selectedResult.latitude(), selectedResult.longitude());
+        if (point.x() < -20.0 || point.x() > MAP_WIDTH + 20.0 || point.y() < -20.0 || point.y() > MAP_HEIGHT + 20.0) {
             return;
         }
-        try {
-            double latitude = Double.parseDouble(coordinates[0]);
-            double longitude = Double.parseDouble(coordinates[1]);
-            Platform.runLater(() -> selectCoordinates(latitude, longitude));
-        } catch (NumberFormatException ignored) {
-            status.setText("Coordonnées de carte invalides.");
+        Circle halo = new Circle(point.x(), point.y(), 12, Palette.withOpacity(Palette.CYAN, 0.22));
+        Circle marker = new Circle(point.x(), point.y(), 6, Palette.CYAN);
+        marker.setStroke(Palette.TEXT);
+        marker.setStrokeWidth(2.0);
+        Line stem = new Line(point.x(), point.y() + 8, point.x(), point.y() + 22);
+        stem.setStroke(Palette.CYAN);
+        stem.setStrokeWidth(2.0);
+        Label label = UiText.label(selectedResult.city(), "map-marker-label");
+        label.setLayoutX(Math.min(MAP_WIDTH - 190.0, Math.max(8.0, point.x() + 12.0)));
+        label.setLayoutY(Math.min(MAP_HEIGHT - 32.0, Math.max(8.0, point.y() - 8.0)));
+        label.setPrefWidth(180.0);
+        markerLayer.getChildren().addAll(halo, stem, marker, label);
+    }
+
+    private Image tileImage(int zoomValue, int tileX, int tileY) {
+        String key = zoomValue + "/" + tileX + "/" + tileY;
+        Image cached = tileCache.get(key);
+        if (cached != null) {
+            return cached;
         }
+        Image image = new Image(tileUrl(zoomValue, tileX, tileY), TILE_SIZE, TILE_SIZE, false, false, true);
+        tileCache.put(key, image);
+        return image;
+    }
+
+    private String tileUrl(int zoomValue, int tileX, int tileY) {
+        return TILE_URL_TEMPLATE
+                .replace("{z}", Integer.toString(zoomValue))
+                .replace("{x}", Integer.toString(tileX))
+                .replace("{y}", Integer.toString(tileY));
+    }
+
+    private void changeZoom(int delta) {
+        int nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
+        if (nextZoom == zoom) {
+            return;
+        }
+        zoom = nextZoom;
+        Point center = project(centerLatitude, centerLongitude, zoom);
+        centerWorldX = center.x();
+        centerWorldY = clampCenterWorldY(center.y());
+        status.setText("Zoom " + zoom + " · cliquez sur une zone.");
+        renderMap();
+    }
+
+    private GeoCoordinate screenToCoordinate(double screenX, double screenY) {
+        double worldX = wrapWorldX(centerWorldX - MAP_WIDTH / 2.0 + screenX);
+        double worldY = clamp(centerWorldY - MAP_HEIGHT / 2.0 + screenY, 0.0, worldSize() - 1.0);
+        return unproject(worldX, worldY, zoom);
+    }
+
+    private Point coordinateToScreen(double latitude, double longitude) {
+        Point projected = project(latitude, longitude, zoom);
+        double deltaX = projected.x() - centerWorldX;
+        double halfWorld = worldSize() / 2.0;
+        if (deltaX > halfWorld) {
+            deltaX -= worldSize();
+        } else if (deltaX < -halfWorld) {
+            deltaX += worldSize();
+        }
+        return new Point(MAP_WIDTH / 2.0 + deltaX, MAP_HEIGHT / 2.0 + projected.y() - centerWorldY);
     }
 
     private void selectCoordinates(double latitude, double longitude) {
@@ -179,6 +356,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         selectedCoordinates.setText(formatCoordinates(latitude, longitude));
         status.setText("Résolution du nom de zone…");
         addButton.setDisable(false);
+        renderMap();
 
         reverseGeocoder.reverse(latitude, longitude).whenComplete((result, error) -> Platform.runLater(() -> {
             if (version != selectionVersion.get()) {
@@ -196,6 +374,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
                 status.setText("Nom indisponible. La zone peut être ajoutée avec ses coordonnées.");
             }
             addButton.setDisable(false);
+            renderMap();
         }));
     }
 
@@ -216,82 +395,59 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         reverseGeocoder.close();
     }
 
-    private String mapHtml() {
-        return """
-                <!doctype html>
-                <html lang=\"fr\">
-                <head>
-                  <meta charset=\"utf-8\">
-                  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-                  <link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css\">
-                  <style>
-                    html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #0B1220; }
-                    body { overflow: hidden; font-family: Luciole, Segoe UI, Arial, sans-serif; }
-                    #map { border-radius: 16px; }
-                    .leaflet-container { background: #0B1220; color: #D9E2F2; }
-                    .leaflet-control-attribution { background: rgba(7, 11, 20, 0.82) !important; color: #9AA7BA !important; }
-                    .leaflet-control-attribution a { color: #00E5FF !important; }
-                    .leaflet-control-zoom a { background: #101B31 !important; color: #FFFFFF !important; border-color: #1E2E48 !important; }
-                    .aelia-popup { color: #0B1220; font-weight: 700; }
-                    .map-error { color: #00E5FF; padding: 24px; font-weight: 700; }
-                  </style>
-                </head>
-                <body>
-                  <div id=\"map\"><div class=\"map-error\">Chargement de la carte…</div></div>
-                  <script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\"></script>
-                  <script>
-                    (function () {
-                      let map;
-                      let marker;
-
-                      function notifyJava(lat, lng) {
-                        window.alert('aelia-map-click:' + lat + ',' + lng);
-                      }
-
-                      function selectPoint(lat, lng, notify) {
-                        const text = lat.toFixed(5) + ', ' + lng.toFixed(5);
-                        if (!marker) {
-                          marker = L.marker([lat, lng]).addTo(map);
-                        } else {
-                          marker.setLatLng([lat, lng]);
-                        }
-                        marker.bindPopup('<span class=\"aelia-popup\">Zone sélectionnée<br>' + text + '</span>').openPopup();
-                        if (notify) {
-                          notifyJava(lat, lng);
-                        }
-                      }
-
-                      function init() {
-                        if (typeof L === 'undefined') {
-                          document.getElementById('map').innerHTML = '<div class=\"map-error\">Leaflet est indisponible. Vérifiez la connexion internet.</div>';
-                          return;
-                        }
-                        map = L.map('map', {
-                          worldCopyJump: true,
-                          zoomControl: true,
-                          attributionControl: true
-                        }).setView([20, 0], 2);
-                        L.tileLayer('__TILE_URL__', {
-                          minZoom: 2,
-                          maxZoom: 18,
-                          attribution: '&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors'
-                        }).addTo(map);
-                        map.on('click', function (event) {
-                          selectPoint(event.latlng.lat, event.latlng.lng, true);
-                        });
-                      }
-
-                      window.aeliaMapReady = function () { };
-
-                      document.addEventListener('DOMContentLoaded', init);
-                    }());
-                  </script>
-                </body>
-                </html>
-                """.replace("__TILE_URL__", escapeJavaScript(TILE_URL_TEMPLATE));
+    private Point project(double latitude, double longitude, int zoomValue) {
+        double clampedLatitude = clamp(latitude, -MAX_MERCATOR_LATITUDE, MAX_MERCATOR_LATITUDE);
+        double sinLatitude = Math.sin(Math.toRadians(clampedLatitude));
+        double scale = worldSize(zoomValue);
+        double x = (longitude + 180.0) / 360.0 * scale;
+        double y = (0.5 - Math.log((1.0 + sinLatitude) / (1.0 - sinLatitude)) / (4.0 * Math.PI)) * scale;
+        return new Point(wrap(x, scale), clamp(y, 0.0, scale - 1.0));
     }
 
-    private String escapeJavaScript(String value) {
-        return value.replace("\\", "\\\\").replace("\'", "\\\'");
+    private GeoCoordinate unproject(double worldX, double worldY, int zoomValue) {
+        double scale = worldSize(zoomValue);
+        double longitude = wrap(worldX, scale) / scale * 360.0 - 180.0;
+        double mercator = Math.PI - 2.0 * Math.PI * clamp(worldY, 0.0, scale - 1.0) / scale;
+        double latitude = Math.toDegrees(Math.atan(Math.sinh(mercator)));
+        return new GeoCoordinate(latitude, longitude);
+    }
+
+    private int tileCount() {
+        return 1 << zoom;
+    }
+
+    private double worldSize() {
+        return worldSize(zoom);
+    }
+
+    private double worldSize(int zoomValue) {
+        return TILE_SIZE * (1 << zoomValue);
+    }
+
+    private double wrapWorldX(double value) {
+        return wrap(value, worldSize());
+    }
+
+    private double clampCenterWorldY(double value) {
+        double scale = worldSize();
+        if (scale <= MAP_HEIGHT) {
+            return scale / 2.0;
+        }
+        return clamp(value, MAP_HEIGHT / 2.0, scale - MAP_HEIGHT / 2.0);
+    }
+
+    private double wrap(double value, double maximum) {
+        double wrapped = value % maximum;
+        return wrapped < 0.0 ? wrapped + maximum : wrapped;
+    }
+
+    private double clamp(double value, double minimum, double maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    private record Point(double x, double y) {
+    }
+
+    private record GeoCoordinate(double latitude, double longitude) {
     }
 }
