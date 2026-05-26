@@ -2,114 +2,174 @@ package fr.alescis.aelia.ui.components;
 
 import fr.alescis.aelia.model.HourlyForecast;
 import fr.alescis.aelia.ui.AccessibilitySupport;
+import fr.alescis.aelia.ui.UiFormatters;
 import fr.alescis.aelia.ui.UiText;
-import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.ScrollEvent;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Horizontal strip of compact hourly forecast chips with real horizontal scrolling.
+ * Compact horizontal hourly forecast card with selectable and scrollable chips.
  */
 public final class HourlyForecastCard extends CardPane {
-    private final List<Pane> chips = new ArrayList<>();
-    private int selectedIndex;
+    private static final double CARD_WIDTH = 556.0;
+    private static final double CARD_HEIGHT = 94.0;
+    private static final double CHIP_WIDTH = 60.0;
+    private static final double CHIP_HEIGHT = 56.0;
+    private static final double CHIP_SPACING = 65.0;
+    private static final double CONTENT_LEFT_PADDING = 3.0;
+    private static final double CONTENT_RIGHT_PADDING = 12.0;
+
+    private final List<HourChipView> chipViews = new ArrayList<>();
+    private int selectedIndex = -1;
 
     public HourlyForecastCard(List<HourlyForecast> forecasts) {
-        super(556, 94);
+        super(CARD_WIDTH, CARD_HEIGHT);
         Label title = UiText.section("Prévisions horaires");
-        title.setLayoutX(20);
-        title.setLayoutY(17);
+        title.setLayoutX(18);
+        title.setLayoutY(16);
         getChildren().add(title);
 
-        HBox strip = new HBox(10);
-        strip.setPadding(new Insets(0, 12, 0, 0));
-        strip.setPrefHeight(58);
-        for (int index = 0; index < forecasts.size(); index++) {
+        ScrollPane scrollPane = buildScrollPane(forecasts);
+        scrollPane.setLayoutX(20);
+        scrollPane.setLayoutY(29);
+        getChildren().add(scrollPane);
+        TooltipSupport.install(this, "Prévisions horaires. Utilisez la molette, le glisser-déposer ou le clavier pour parcourir les heures.");
+        AccessibilitySupport.describe(this, AccessibleRole.PARENT, "Prévisions horaires", "Liste des prévisions météo heure par heure.");
+    }
+
+    private ScrollPane buildScrollPane(List<HourlyForecast> forecasts) {
+        Pane content = new Pane();
+        int count = forecasts.size();
+        double contentWidth = CONTENT_LEFT_PADDING + Math.max(1, count) * CHIP_SPACING - (CHIP_SPACING - CHIP_WIDTH) + CONTENT_RIGHT_PADDING;
+        content.setPrefSize(Math.max(516.0, contentWidth), CHIP_HEIGHT + 4.0);
+
+        for (int index = 0; index < count; index++) {
             HourlyForecast forecast = forecasts.get(index);
-            Pane chip = buildChip(forecast, index);
-            chips.add(chip);
-            strip.getChildren().add(chip);
+            Pane chip = hourChip(forecast, index);
+            chip.setLayoutX(CONTENT_LEFT_PADDING + index * CHIP_SPACING);
+            chip.setLayoutY(0);
+            content.getChildren().add(chip);
+            HourChipView view = new HourChipView(chip, forecast);
+            chipViews.add(view);
             if (forecast.selected()) {
                 selectedIndex = index;
             }
         }
+        if (selectedIndex < 0 && !chipViews.isEmpty()) {
+            selectedIndex = 0;
+        }
+        updateSelection();
 
-        ScrollPane scroller = new ScrollPane(strip);
-        scroller.getStyleClass().add("hourly-scroll-pane");
-        scroller.setLayoutX(10);
-        scroller.setLayoutY(28);
-        scroller.setPrefSize(536, 58);
-        scroller.setMinSize(536, 58);
-        scroller.setMaxSize(536, 58);
-        scroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroller.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroller.setFitToHeight(true);
-        scroller.setPannable(true);
-        scroller.setFocusTraversable(false);
-        scroller.addEventFilter(ScrollEvent.SCROLL, event -> {
-            double delta = Math.abs(event.getDeltaX()) > Math.abs(event.getDeltaY()) ? event.getDeltaX() : event.getDeltaY();
-            scroller.setHvalue(Math.max(0.0, Math.min(1.0, scroller.getHvalue() - delta / 420.0)));
-            event.consume();
-        });
-        getChildren().add(scroller);
-
-        refreshSelection();
-        AccessibilitySupport.describe(this, AccessibleRole.PARENT, "Prévisions horaires", "Faire défiler horizontalement pour consulter les heures suivantes.");
+        ScrollPane scrollPane = new ScrollPane(content);
+        scrollPane.getStyleClass().add("hourly-scroll-pane");
+        scrollPane.setPrefSize(516, 60);
+        scrollPane.setMinSize(516, 60);
+        scrollPane.setMaxSize(516, 60);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setPannable(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setFocusTraversable(false);
+        enableWheelScroll(scrollPane);
+        enableDragScroll(scrollPane, content);
+        return scrollPane;
     }
 
-    private Pane buildChip(HourlyForecast forecast, int index) {
+    private Pane hourChip(HourlyForecast forecast, int index) {
         Pane chip = new Pane();
-        chip.setPrefSize(60, 56);
-        chip.setMinSize(60, 56);
-        chip.setMaxSize(60, 56);
+        chip.setPrefSize(CHIP_WIDTH, CHIP_HEIGHT);
         chip.setFocusTraversable(true);
         chip.setAccessibleRole(AccessibleRole.BUTTON);
-        chip.setAccessibleText(forecast.hour() + ", " + forecast.condition().label() + ", " + forecast.temperatureCelsius() + " degrés");
-        chip.setAccessibleHelp("Prévision horaire sélectionnable.");
+        chip.setAccessibleText(UiFormatters.hour(forecast.time()) + ", " + forecast.condition().label() + ", " + forecast.temperatureCelsius() + " degrés");
+        chip.setAccessibleHelp("Sélectionne cette prévision horaire.");
 
-        Label hour = UiText.data(forecast.hour(), "hour-label");
-        hour.setPrefWidth(60);
+        Label hour = UiText.label(UiFormatters.hour(forecast.time()), "hour-label");
+        hour.setAlignment(Pos.CENTER);
+        hour.setPrefWidth(CHIP_WIDTH);
         hour.setLayoutX(0);
-        hour.setLayoutY(2);
+        hour.setLayoutY(0);
 
-        Node icon = WeatherIcons.smallCondition(forecast.condition());
-        icon.setLayoutX(30);
-        icon.setLayoutY(28);
+        Node icon = WeatherIcons.conditionIcon(forecast.condition(), 30);
+        icon.setLayoutX(15);
+        icon.setLayoutY(16);
+        icon.setMouseTransparent(true);
 
         Label temperature = UiText.data(forecast.temperatureCelsius() + "°", "hour-temperature");
-        temperature.setPrefWidth(60);
+        temperature.setAlignment(Pos.CENTER);
+        temperature.setPrefWidth(CHIP_WIDTH);
         temperature.setLayoutX(0);
-        temperature.setLayoutY(39);
+        temperature.setLayoutY(42);
 
         chip.getChildren().addAll(hour, icon, temperature);
-        chip.setOnMouseClicked(event -> select(index));
+        chip.setOnMouseClicked(event -> {
+            if (!event.isStillSincePress()) {
+                return;
+            }
+            select(index);
+            event.consume();
+        });
         chip.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER || event.getCode() == KeyCode.SPACE) {
                 select(index);
                 event.consume();
             }
         });
+        TooltipSupport.install(chip, UiFormatters.hour(forecast.time()) + " · " + forecast.condition().label() + " · " + forecast.temperatureCelsius() + " °C");
         return chip;
     }
 
     private void select(int index) {
+        if (index < 0 || index >= chipViews.size()) {
+            return;
+        }
         selectedIndex = index;
-        refreshSelection();
+        updateSelection();
     }
 
-    private void refreshSelection() {
-        for (int i = 0; i < chips.size(); i++) {
-            chips.get(i).getStyleClass().removeAll("hour-chip", "hour-chip-active");
-            chips.get(i).getStyleClass().add(i == selectedIndex ? "hour-chip-active" : "hour-chip");
+    private void updateSelection() {
+        for (int index = 0; index < chipViews.size(); index++) {
+            Pane chip = chipViews.get(index).pane();
+            chip.getStyleClass().removeAll("hour-chip-active", "hour-chip");
+            chip.getStyleClass().add(index == selectedIndex ? "hour-chip-active" : "hour-chip");
         }
+    }
+
+    private void enableWheelScroll(ScrollPane scrollPane) {
+        scrollPane.addEventFilter(ScrollEvent.SCROLL, event -> {
+            double delta = Math.abs(event.getDeltaX()) > Math.abs(event.getDeltaY()) ? event.getDeltaX() : event.getDeltaY();
+            if (Math.abs(delta) < 0.1) {
+                return;
+            }
+            double direction = delta > 0.0 ? -1.0 : 1.0;
+            scrollPane.setHvalue(GaugeMath.clamp(scrollPane.getHvalue() + direction * 0.08, 0.0, 1.0));
+            event.consume();
+        });
+    }
+
+    private void enableDragScroll(ScrollPane scrollPane, Pane content) {
+        final double[] anchorX = {0.0};
+        final double[] anchorHValue = {0.0};
+        content.setOnMousePressed(event -> {
+            anchorX[0] = event.getSceneX();
+            anchorHValue[0] = scrollPane.getHvalue();
+        });
+        content.setOnMouseDragged(event -> {
+            double overflow = Math.max(1.0, content.getBoundsInLocal().getWidth() - scrollPane.getViewportBounds().getWidth());
+            double delta = anchorX[0] - event.getSceneX();
+            scrollPane.setHvalue(GaugeMath.clamp(anchorHValue[0] + delta / overflow, 0.0, 1.0));
+            event.consume();
+        });
+    }
+
+    private record HourChipView(Pane pane, HourlyForecast forecast) {
     }
 }

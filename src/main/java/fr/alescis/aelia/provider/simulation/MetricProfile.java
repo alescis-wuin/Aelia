@@ -1,37 +1,26 @@
 package fr.alescis.aelia.provider.simulation;
 
-import fr.alescis.aelia.model.DataMetric;
-
-import java.time.Duration;
-import java.util.Objects;
-
 /**
- * Numeric simulation parameters used by one metric state.
+ * Stable simulated range definition for one metric.
  */
-record MetricProfile(
-        DataMetric metric,
+public record MetricProfile(
+        String id,
         double baseValue,
+        double amplitude,
         double minimum,
         double maximum,
-        double volatility,
-        double recovery,
-        double cycleAmplitude,
-        Duration cycleDuration
+        String unit
 ) {
-    MetricProfile {
-        metric = Objects.requireNonNull(metric, "metric");
-        cycleDuration = Objects.requireNonNull(cycleDuration, "cycleDuration");
-        if (minimum > maximum) {
-            throw new IllegalArgumentException("minimum must not be greater than maximum");
+    public MetricProfile {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("Metric id is required.");
         }
-        if (baseValue < minimum || baseValue > maximum) {
-            throw new IllegalArgumentException("baseValue must be inside the profile range");
+        unit = unit == null ? "" : unit;
+        if (amplitude < 0.0) {
+            throw new IllegalArgumentException("Amplitude cannot be negative.");
         }
-        if (volatility < 0.0d || recovery < 0.0d || cycleAmplitude < 0.0d) {
-            throw new IllegalArgumentException("profile values must be positive");
-        }
-        if (cycleDuration.isNegative() || cycleDuration.isZero()) {
-            throw new IllegalArgumentException("cycleDuration must be positive");
+        if (maximum < minimum) {
+            throw new IllegalArgumentException("Maximum must be greater than or equal to minimum.");
         }
     }
 }

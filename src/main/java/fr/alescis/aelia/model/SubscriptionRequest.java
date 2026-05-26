@@ -1,17 +1,19 @@
 package fr.alescis.aelia.model;
 
 import java.time.Duration;
+import java.util.Objects;
 
 /**
- * Request used to subscribe to periodic metric updates.
+ * Defines a subscription to a single metric at a fixed interval.
  */
 public record SubscriptionRequest(String metricId, Duration interval) {
     public SubscriptionRequest {
         if (metricId == null || metricId.isBlank()) {
             throw new IllegalArgumentException("Metric id is required.");
         }
-        if (interval == null || interval.isNegative() || interval.isZero()) {
-            throw new IllegalArgumentException("Interval must be strictly positive.");
+        interval = Objects.requireNonNull(interval, "interval");
+        if (interval.isNegative() || interval.isZero()) {
+            throw new IllegalArgumentException("Interval must be positive.");
         }
     }
 }

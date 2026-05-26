@@ -1,35 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 /path/to/Luciole_webfonts.zip /path/to/Hack-v3.003-ttf.zip" >&2
-  exit 1
-fi
+luciole_zip="${1:-}"
+hack_zip="${2:-}"
+font_dir="src/main/resources/fr/alescis/aelia/fonts"
 
-luciole_zip="$1"
-hack_zip="$2"
-target_dir="src/main/resources/fr/alescis/aelia/fonts"
+mkdir -p "${font_dir}"
 
-if [[ ! -f "${luciole_zip}" ]]; then
-  echo "Luciole archive not found: ${luciole_zip}" >&2
-  exit 1
-fi
+extract_font() {
+  local zip_file="$1"
+  local pattern="$2"
+  local output_name="$3"
+  if [[ -z "${zip_file}" || ! -f "${zip_file}" ]]; then
+    echo "Skipping ${output_name}: archive not provided"
+    return 0
+  fi
+  local match
+  match="$(unzip -Z1 "${zip_file}" | grep -E "${pattern}" | head -n 1 || true)"
+  if [[ -z "${match}" ]]; then
+    echo "Missing ${output_name} in ${zip_file}" >&2
+    exit 1
+  fi
+  unzip -p "${zip_file}" "${match}" > "${font_dir}/${output_name}"
+  echo "Imported ${output_name}"
+}
 
-if [[ ! -f "${hack_zip}" ]]; then
-  echo "Hack archive not found: ${hack_zip}" >&2
-  exit 1
-fi
-
-mkdir -p "${target_dir}"
-tmp_dir="$(mktemp -d)"
-trap 'rm -rf "${tmp_dir}"' EXIT
-
-unzip -q "${luciole_zip}" -d "${tmp_dir}/luciole"
-unzip -q "${hack_zip}" -d "${tmp_dir}/hack"
-
-cp "${tmp_dir}/luciole/Luciole_webfonts/Luciole-Regular/Luciole-Regular.ttf" "${target_dir}/Luciole-Regular.ttf"
-cp "${tmp_dir}/luciole/Luciole_webfonts/Luciole-Bold/Luciole-Bold.ttf" "${target_dir}/Luciole-Bold.ttf"
-cp "${tmp_dir}/hack/ttf/Hack-Regular.ttf" "${target_dir}/Hack-Regular.ttf"
-cp "${tmp_dir}/hack/ttf/Hack-Bold.ttf" "${target_dir}/Hack-Bold.ttf"
-
-echo "Fonts imported into ${target_dir}"
+extract_font "${luciole_zip}" 'Luciole-Regular\.ttf$' 'Luciole-Regular.ttf'
+extract_font "${luciole_zip}" 'Luciole-Bold\.ttf$' 'Luciole-Bold.ttf'
+extract_font "${hack_zip}" 'Hack-Regular\.ttf$' 'Hack-Regular.ttf'
+extract_font "${hack_zip}" 'Hack-Bold\.ttf$' 'Hack-Bold.ttf'

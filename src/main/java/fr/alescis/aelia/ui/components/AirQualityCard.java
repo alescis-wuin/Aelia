@@ -18,6 +18,8 @@ import javafx.scene.shape.StrokeLineCap;
  * Air-quality index card with key pollutants.
  */
 public final class AirQualityCard extends CardPane {
+    private static final double GOOD_RANGE_MAX = 50.0;
+
     public AirQualityCard(AirQuality airQuality) {
         super(256, 254);
         Label title = UiText.section("IQA · Qualité de l'air");
@@ -29,7 +31,8 @@ public final class AirQualityCard extends CardPane {
         base.setStroke(Palette.BORDER_SOFT);
         base.setStrokeWidth(10.0);
 
-        Arc arc = new Arc(128, 95, 52, 52, 90, -302.0);
+        double progress = GaugeMath.normalize(airQuality.airQualityIndex(), 0.0, GOOD_RANGE_MAX);
+        Arc arc = new Arc(128, 95, 52, 52, 90, -360.0 * progress);
         arc.setFill(null);
         arc.setStroke(Palette.LIME);
         arc.setStrokeWidth(10.0);
@@ -51,8 +54,8 @@ public final class AirQualityCard extends CardPane {
         badge.setLayoutX(104);
         badge.setLayoutY(118);
         badge.setArcWidth(16);
-            badge.setArcHeight(16);
-            badge.getStyleClass().add("aqi-badge");
+        badge.setArcHeight(16);
+        badge.getStyleClass().add("aqi-badge");
         Label status = UiText.data(airQuality.status(), "aqi-status");
         status.setLayoutX(104);
         status.setLayoutY(119);
@@ -64,11 +67,21 @@ public final class AirQualityCard extends CardPane {
         separator.setStrokeWidth(0.8);
 
         getChildren().addAll(title, base, arc, value, unit, badge, status, separator);
+        String tooltipText = "IQA " + airQuality.airQualityIndex() + " · " + airQuality.status()
+                + " · PM2.5 " + airQuality.pm25MicrogramsPerCubicMeter() + " µg/m³"
+                + " · PM10 " + airQuality.pm10MicrogramsPerCubicMeter() + " µg/m³"
+                + " · NO₂ " + airQuality.no2MicrogramsPerCubicMeter() + " µg/m³";
+        TooltipSupport.install(this, tooltipText);
+        TooltipSupport.install(base, tooltipText);
+        TooltipSupport.install(arc, tooltipText);
+        TooltipSupport.install(badge, "Statut qualité de l'air : " + airQuality.status());
         pollutant("PM2.5", airQuality.pm25MicrogramsPerCubicMeter(), 181);
         pollutant("PM10", airQuality.pm10MicrogramsPerCubicMeter(), 206);
         pollutant("NO₂", airQuality.no2MicrogramsPerCubicMeter(), 231);
 
-        AccessibilitySupport.describe(this, AccessibleRole.TEXT, "Indice de qualité de l'air " + airQuality.airQualityIndex() + ", statut " + airQuality.status(), "Carte qualité de l'air avec PM2.5, PM10 et dioxyde d'azote.");
+        AccessibilitySupport.describe(this, AccessibleRole.TEXT,
+                "Indice de qualité de l'air " + airQuality.airQualityIndex() + ", statut " + airQuality.status(),
+                "Carte qualité de l'air avec PM2.5, PM10 et dioxyde d'azote.");
     }
 
     private void pollutant(String name, int value, double y) {
@@ -79,6 +92,7 @@ public final class AirQualityCard extends CardPane {
         valueLabel.setLayoutX(154);
         valueLabel.setLayoutY(y - 10);
         valueLabel.setPrefWidth(82);
+        TooltipSupport.install(valueLabel, name + " : " + value + " µg/m³");
         getChildren().addAll(nameLabel, valueLabel);
         if (y < 230) {
             Line separator = new Line(14, y + 8, 242, y + 8);

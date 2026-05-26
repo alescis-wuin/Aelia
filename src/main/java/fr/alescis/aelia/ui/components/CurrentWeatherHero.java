@@ -2,6 +2,7 @@ package fr.alescis.aelia.ui.components;
 
 import fr.alescis.aelia.model.CurrentWeather;
 import fr.alescis.aelia.ui.AccessibilitySupport;
+import fr.alescis.aelia.ui.UiFormatters;
 import fr.alescis.aelia.ui.UiText;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
@@ -34,7 +35,8 @@ public final class CurrentWeatherHero extends CardPane {
         temperatureBlock.setLayoutY(TEMPERATURE_BLOCK_Y);
 
         Label details = UiText.label(
-                "Ressenti " + weather.apparentTemperatureCelsius() + "°     Lever " + weather.sunrise() + "     Coucher " + weather.sunset(),
+                "Ressenti " + weather.apparentTemperatureCelsius() + "°     Lever "
+                        + UiFormatters.time(weather.sunriseTime()) + "     Coucher " + UiFormatters.time(weather.sunsetTime()),
                 "hero-details"
         );
         details.setLayoutX(20);
@@ -48,7 +50,7 @@ public final class CurrentWeatherHero extends CardPane {
         datePill.setArcHeight(26);
         datePill.getStyleClass().add("date-pill");
 
-        Label date = UiText.label(weather.city() + " · " + weather.dateLabel(), "date-label");
+        Label date = UiText.label(weather.city() + " · " + UiFormatters.dateLabel(weather.date()), "date-label");
         date.setPrefWidth(DATE_PILL_WIDTH);
         date.setAlignment(Pos.CENTER);
         date.setLayoutX(dateX);
@@ -66,10 +68,24 @@ public final class CurrentWeatherHero extends CardPane {
         condition.setLayoutY(166);
 
         getChildren().addAll(temperatureBlock, details, datePill, date, sun, condition);
+        String tooltipText = weather.city() + " · " + weather.conditionLabel()
+                + " · " + weather.temperatureCelsius() + " °C"
+                + " · ressenti " + weather.apparentTemperatureCelsius() + " °C"
+                + " · max " + weather.maximumTemperatureCelsius() + " °C"
+                + " · min " + weather.minimumTemperatureCelsius() + " °C";
+        TooltipSupport.install(this, tooltipText);
+        TooltipSupport.install(datePill, weather.city() + " · " + UiFormatters.dateLabel(weather.date()));
+        TooltipSupport.install(date, weather.city() + " · " + UiFormatters.dateLabel(weather.date()));
+        TooltipSupport.install(sun, weather.conditionLabel());
+        TooltipSupport.install(condition, weather.conditionLabel());
+        TooltipSupport.install(details, "Ressenti " + weather.apparentTemperatureCelsius() + " °C · lever "
+                + UiFormatters.time(weather.sunriseTime()) + " · coucher " + UiFormatters.time(weather.sunsetTime()));
         AccessibilitySupport.describe(
                 this,
                 AccessibleRole.TEXT,
-                String.format(Locale.ROOT, "%s à %s, %d degrés, maximum %d, minimum %d", weather.conditionLabel(), weather.city(), weather.temperatureCelsius(), weather.maximumTemperatureCelsius(), weather.minimumTemperatureCelsius()),
+                String.format(Locale.ROOT, "%s à %s, %d degrés, maximum %d, minimum %d",
+                        weather.conditionLabel(), weather.city(), weather.temperatureCelsius(),
+                        weather.maximumTemperatureCelsius(), weather.minimumTemperatureCelsius()),
                 "Carte météo principale pour la zone sélectionnée."
         );
     }

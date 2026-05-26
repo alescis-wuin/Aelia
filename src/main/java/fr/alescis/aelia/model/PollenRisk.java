@@ -1,5 +1,7 @@
 package fr.alescis.aelia.model;
 
+import java.util.Objects;
+
 /**
  * Pollen level for a specific botanical group.
  */
@@ -8,8 +10,6 @@ public record PollenRisk(String name, PollenLevel level) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Pollen name is required.");
         }
-        if (level == null) {
-            throw new IllegalArgumentException("Pollen level is required.");
-        }
+        level = Objects.requireNonNull(level, "level");
     }
 }

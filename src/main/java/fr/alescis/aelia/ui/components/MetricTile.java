@@ -1,52 +1,25 @@
 package fr.alescis.aelia.ui.components;
 
-import fr.alescis.aelia.model.DataMetric;
-import fr.alescis.aelia.model.MetricValue;
-import fr.alescis.aelia.ui.UiFormatters;
-import javafx.geometry.Pos;
+import fr.alescis.aelia.model.WeatherMetric;
+import fr.alescis.aelia.ui.AccessibilitySupport;
+import fr.alescis.aelia.ui.UiText;
 import javafx.scene.AccessibleRole;
 import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
-
-import java.util.Objects;
 
 /**
- * Small, reusable value card used by the dashboard glance row.
+ * Compact metric descriptor tile used by diagnostic or settings views.
  */
-public final class MetricTile extends VBox {
-    private final DataMetric metric;
-    private final Label nameLabel;
-    private final Label valueLabel;
-    private final Label metaLabel;
-
-    public MetricTile(DataMetric metric) {
-        this.metric = Objects.requireNonNull(metric, "metric");
-        this.nameLabel = new Label(metric.displayName());
-        this.valueLabel = new Label("—");
-        this.metaLabel = new Label(metric.unit().isBlank() ? metric.category().label() : metric.unit());
-        build();
-    }
-
-    public DataMetric metric() {
-        return metric;
-    }
-
-    public void update(MetricValue value) {
-        valueLabel.setText(UiFormatters.shortValue(value));
-        metaLabel.setText(value.metric().unit().isBlank() ? UiFormatters.timestamp(value.timestamp()) : value.metric().unit());
-        setAccessibleText(value.metric().displayName() + ": " + UiFormatters.value(value));
-    }
-
-    private void build() {
-        getStyleClass().add("metric-tile");
-        setAlignment(Pos.CENTER_LEFT);
-        setSpacing(4.0d);
-        setAccessibleRole(AccessibleRole.TEXT);
-        setAccessibleText(metric.displayName() + ": no value yet");
-
-        nameLabel.getStyleClass().add("tile-name");
-        valueLabel.getStyleClass().add("tile-value");
-        metaLabel.getStyleClass().add("tile-meta");
-        getChildren().addAll(nameLabel, valueLabel, metaLabel);
+public final class MetricTile extends CardPane {
+    public MetricTile(WeatherMetric metric) {
+        super(210, 72);
+        Label title = UiText.label(metric.label(), "forecast-day-active");
+        title.setLayoutX(14);
+        title.setLayoutY(12);
+        Label details = UiText.label(metric.category() + " · " + metric.supportedPeriod(), "location-details");
+        details.setLayoutX(14);
+        details.setLayoutY(34);
+        details.setPrefWidth(180);
+        getChildren().addAll(title, details);
+        AccessibilitySupport.describe(this, AccessibleRole.TEXT, metric.label(), metric.supportedPeriod());
     }
 }

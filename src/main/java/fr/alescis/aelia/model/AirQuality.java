@@ -17,5 +17,8 @@ public record AirQuality(
         if (status == null || status.isBlank()) {
             throw new IllegalArgumentException("Air quality status is required.");
         }
+        if (pm25MicrogramsPerCubicMeter < 0 || pm10MicrogramsPerCubicMeter < 0 || no2MicrogramsPerCubicMeter < 0) {
+            throw new IllegalArgumentException("Pollutant values cannot be negative.");
+        }
     }
 }

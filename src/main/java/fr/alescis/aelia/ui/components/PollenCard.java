@@ -12,6 +12,7 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Pollen risk card with per-type bars and a compact legend.
@@ -28,7 +29,12 @@ public final class PollenCard extends CardPane {
             addRisk(risks.get(index), 36 + index * 44.0);
         }
         addLegend();
-        AccessibilitySupport.describe(this, AccessibleRole.TEXT, "Niveaux de pollen : graminées fort, bouleau moyen, olivier faible, ambroisie nul", "Carte des risques polliniques par type de pollen.");
+        String accessible = risks.stream()
+                .map(risk -> risk.name() + " " + risk.level().label())
+                .collect(Collectors.joining(", "));
+        TooltipSupport.install(this, "Niveaux de pollen : " + accessible);
+        AccessibilitySupport.describe(this, AccessibleRole.TEXT, "Niveaux de pollen : " + accessible,
+                "Carte des risques polliniques par type de pollen.");
     }
 
     private void addRisk(PollenRisk risk, double y) {
@@ -36,8 +42,8 @@ public final class PollenCard extends CardPane {
         row.setLayoutX(16);
         row.setLayoutY(y);
         row.setArcWidth(8);
-            row.setArcHeight(8);
-            row.getStyleClass().add("pollen-row");
+        row.setArcHeight(8);
+        row.getStyleClass().add("pollen-row");
 
         Color color = colorFor(risk.level());
         Circle bullet = new Circle(20, y + 19, 4, color);
@@ -51,8 +57,8 @@ public final class PollenCard extends CardPane {
         track.setLayoutX(34);
         track.setLayoutY(y + 25);
         track.setArcWidth(5);
-            track.setArcHeight(5);
-            track.getStyleClass().add("pollen-track");
+        track.setArcHeight(5);
+        track.getStyleClass().add("pollen-track");
 
         Rectangle progress = new Rectangle(130 * risk.level().normalizedValue(), 5);
         progress.setLayoutX(34);
@@ -71,6 +77,11 @@ public final class PollenCard extends CardPane {
         level.setLayoutY(y + 9);
         level.setPrefWidth(60);
 
+        String tooltipText = risk.name() + " : " + risk.level().label();
+        TooltipSupport.install(row, tooltipText);
+        TooltipSupport.install(track, tooltipText);
+        TooltipSupport.install(progress, tooltipText);
+        TooltipSupport.install(level, tooltipText);
         getChildren().addAll(row, bullet, name, track, progress, level);
     }
 
@@ -79,8 +90,8 @@ public final class PollenCard extends CardPane {
         background.setLayoutX(16);
         background.setLayoutY(212);
         background.setArcWidth(8);
-            background.setArcHeight(8);
-            background.getStyleClass().add("pollen-legend");
+        background.setArcHeight(8);
+        background.getStyleClass().add("pollen-legend");
         getChildren().add(background);
 
         addLegendItem(28, "Nul", Palette.withOpacity(Palette.TEXT, 0.35));

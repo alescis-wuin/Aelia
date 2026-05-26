@@ -17,6 +17,8 @@ import javafx.scene.shape.StrokeLineCap;
  * Wind card with speed gauge, direction badge and gust value.
  */
 public final class WindCard extends CardPane {
+    private static final double MAX_DISPLAYED_SPEED_KMH = 100.0;
+
     public WindCard(int speedKmh, String direction, int gustKmh) {
         super(162, 164);
         Label title = UiText.section("Vent");
@@ -35,7 +37,8 @@ public final class WindCard extends CardPane {
         base.setStroke(Palette.BORDER_SOFT);
         base.setStrokeWidth(8.0);
 
-        Arc progress = new Arc(centerX, centerY, radius, radius, 90, -360.0 * 0.18);
+        double progressValue = GaugeMath.normalize(speedKmh, 0.0, MAX_DISPLAYED_SPEED_KMH);
+        Arc progress = new Arc(centerX, centerY, radius, radius, 90, -360.0 * progressValue);
         progress.setFill(null);
         progress.setStroke(Palette.LIME);
         progress.setStrokeWidth(8.0);
@@ -69,7 +72,15 @@ public final class WindCard extends CardPane {
         gustValue.setAlignment(Pos.CENTER_RIGHT);
 
         getChildren().addAll(title, windMark, base, progress, centerText, badge, directionLabel, gustLabel, gustValue);
-        AccessibilitySupport.describe(this, AccessibleRole.TEXT, "Vent " + speedKmh + " kilomètres par heure, direction " + direction + ", rafales " + gustKmh + " kilomètres par heure", "Carte de vitesse du vent, direction et rafales.");
+        String tooltipText = "Vent " + speedKmh + " km/h · direction " + direction + " · rafales " + gustKmh + " km/h";
+        TooltipSupport.install(this, tooltipText);
+        TooltipSupport.install(base, tooltipText);
+        TooltipSupport.install(progress, tooltipText);
+        TooltipSupport.install(badge, "Direction du vent : " + direction);
+        TooltipSupport.install(directionLabel, "Direction du vent : " + direction);
+        AccessibilitySupport.describe(this, AccessibleRole.TEXT,
+                "Vent " + speedKmh + " kilomètres par heure, direction " + direction + ", rafales " + gustKmh + " kilomètres par heure",
+                "Carte de vitesse du vent, direction et rafales.");
     }
 
     private static VBox centeredValueBlock(Label value, Label unit, double centerX, double centerY, double width, double height) {

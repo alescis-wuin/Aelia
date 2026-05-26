@@ -16,28 +16,35 @@ import javafx.scene.shape.StrokeLineCap;
  * Atmospheric pressure card with a semi-circular gauge.
  */
 public final class PressureCard extends CardPane {
+    private static final double MIN_PRESSURE_HPA = 980.0;
+    private static final double MAX_PRESSURE_HPA = 1040.0;
+
     public PressureCard(int pressureHpa, String trend) {
         super(174, 164);
         Label title = UiText.section("Pression atm.");
         title.setLayoutX(18);
         title.setLayoutY(16);
 
-        Arc base = new Arc(87, 84, 42, 42, 180, -180);
+        double centerX = 87.0;
+        double centerY = 84.0;
+        double radius = 42.0;
+        Arc base = new Arc(centerX, centerY, radius, radius, 180, -180);
         base.setFill(null);
         base.setStroke(Palette.BORDER_SOFT);
         base.setStrokeWidth(8.0);
         base.setType(ArcType.OPEN);
         base.setStrokeLineCap(StrokeLineCap.ROUND);
 
-        double progress = (pressureHpa - 980.0) / 60.0;
-        Arc arc = new Arc(87, 84, 42, 42, 180, -180.0 * Math.max(0.0, Math.min(1.0, progress)));
+        double progress = GaugeMath.normalize(pressureHpa, MIN_PRESSURE_HPA, MAX_PRESSURE_HPA);
+        Arc arc = new Arc(centerX, centerY, radius, radius, 180, -180.0 * progress);
         arc.setFill(null);
         arc.setStroke(Palette.CYAN);
         arc.setStrokeWidth(8.0);
         arc.setType(ArcType.OPEN);
         arc.setStrokeLineCap(StrokeLineCap.ROUND);
 
-        Circle dot = new Circle(103, 45, 4, Palette.TEXT);
+        GaugePoint dotPosition = GaugeMath.semicirclePoint(centerX, centerY, radius, radius, progress);
+        Circle dot = new Circle(dotPosition.x(), dotPosition.y(), 4, Palette.TEXT);
 
         Label min = UiText.data("980", "pressure-scale");
         min.setLayoutX(32);
@@ -62,7 +69,14 @@ public final class PressureCard extends CardPane {
         normal.setAlignment(Pos.CENTER_RIGHT);
 
         getChildren().addAll(title, base, arc, dot, min, max, centerText, trendLabel, normal);
-        AccessibilitySupport.describe(this, AccessibleRole.TEXT, "Pression atmosphérique " + pressureHpa + " hectopascals, " + trend, "Carte de pression atmosphérique.");
+        String tooltipText = "Pression atmosphérique " + pressureHpa + " hPa · " + trend + " · normale 1013 hPa";
+        TooltipSupport.install(this, tooltipText);
+        TooltipSupport.install(base, tooltipText);
+        TooltipSupport.install(arc, tooltipText);
+        TooltipSupport.install(dot, tooltipText);
+        AccessibilitySupport.describe(this, AccessibleRole.TEXT,
+                "Pression atmosphérique " + pressureHpa + " hectopascals, " + trend,
+                "Carte de pression atmosphérique.");
     }
 
     private static VBox centeredValueBlock(Label value, Label unit, double centerX, double centerY, double width, double height) {

@@ -1,52 +1,32 @@
 package fr.alescis.aelia.ui;
 
-import javafx.scene.AccessibleRole;
 import javafx.scene.control.Label;
-import javafx.scene.paint.Color;
-
-import java.util.Locale;
 
 /**
- * Factory for consistently styled labels.
+ * Factory methods for text nodes using the CSS design system.
  */
 public final class UiText {
     private UiText() {
     }
 
-    public static Label brand(String text) {
-        Label label = new Label(spaced(text.toUpperCase(Locale.ROOT)));
-        label.getStyleClass().add("brand-text");
+    public static Label label(String text, String styleClass) {
+        Label label = new Label(text == null ? "" : text);
+        if (styleClass != null && !styleClass.isBlank()) {
+            label.getStyleClass().add(styleClass);
+        }
+        label.setMouseTransparent(true);
         return label;
+    }
+
+    public static Label brand(String text) {
+        return label(UiFormatters.trackedUppercase(text), "brand-text");
     }
 
     public static Label section(String text) {
-        Label label = new Label(spaced(text.toUpperCase(Locale.ROOT)));
-        label.getStyleClass().add("section-title");
-        return label;
-    }
-
-    public static Label label(String text, String styleClass) {
-        Label label = new Label(text);
-        label.getStyleClass().add(styleClass);
-        return label;
+        return label(UiFormatters.trackedUppercase(text), "section-title");
     }
 
     public static Label data(String text, String styleClass) {
-        Label label = label(text, styleClass);
-        label.getStyleClass().add("data-font");
-        return label;
-    }
-
-    public static void color(Label label, Color color) {
-        label.setTextFill(color);
-    }
-
-    public static void accessible(Label label, String text) {
-        label.setAccessibleRole(AccessibleRole.TEXT);
-        label.setAccessibleText(text);
-    }
-
-    private static String spaced(String value) {
-        return String.join(" ", value.split(""));
+        return label(text, styleClass);
     }
 }

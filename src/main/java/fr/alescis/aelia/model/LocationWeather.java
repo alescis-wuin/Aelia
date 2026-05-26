@@ -1,5 +1,7 @@
 package fr.alescis.aelia.model;
 
+import java.util.Objects;
+
 /**
  * Compact weather summary for the location list.
  */
@@ -17,8 +19,6 @@ public record LocationWeather(
         if (country == null || country.isBlank()) {
             throw new IllegalArgumentException("Country is required.");
         }
-        if (condition == null) {
-            throw new IllegalArgumentException("Condition is required.");
-        }
+        condition = Objects.requireNonNull(condition, "condition");
     }
 }

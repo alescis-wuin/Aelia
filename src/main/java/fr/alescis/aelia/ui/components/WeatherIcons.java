@@ -2,216 +2,231 @@ package fr.alescis.aelia.ui.components;
 
 import fr.alescis.aelia.model.WeatherCondition;
 import fr.alescis.aelia.ui.Palette;
-import javafx.geometry.Bounds;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Arc;
 import javafx.scene.shape.ArcType;
 import javafx.scene.shape.Circle;
-import javafx.scene.shape.Ellipse;
+import javafx.scene.shape.CubicCurve;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.Polygon;
+import javafx.scene.shape.Polyline;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.shape.SVGPath;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 
 /**
- * Lightweight vector icon factory used by the dashboard cards.
+ * Lightweight JavaFX vector icons used by the mockup.
  */
 public final class WeatherIcons {
     private WeatherIcons() {
     }
 
     public static Node logoCloud() {
-        SVGPath path = path("M14 22 Q14 14 22 14 Q20 8 28 6 Q36 4 38 12 Q44 10 46 16 Q52 16 52 22 Q52 28 46 28 L18 28 Q14 28 14 22Z");
-        path.setFill(Color.TRANSPARENT);
-        path.setStroke(Palette.CYAN);
-        path.setStrokeWidth(2.0);
-        return path;
+        Group group = new Group();
+        Polyline cloud = new Polyline(12, 22, 12, 18, 17, 14, 23, 14, 27, 8, 36, 8, 41, 14, 46, 14, 51, 18, 51, 23, 12, 23);
+        styleStroke(cloud, Palette.CYAN, 2.0);
+        group.getChildren().add(cloud);
+        return group;
     }
 
-    public static Node sun(double radius) {
+    public static Node searchIcon() {
         Group group = new Group();
-        Circle circle = new Circle(radius, Palette.YELLOW);
-        circle.setOpacity(0.88);
-        group.getChildren().add(circle);
+        Circle lens = new Circle(0, 0, 7);
+        lens.setFill(Color.TRANSPARENT);
+        lens.setStroke(Palette.withOpacity(Palette.TEXT_MUTED, 0.55));
+        lens.setStrokeWidth(1.8);
+        Line handle = new Line(5, 5, 12, 12);
+        styleStroke(handle, Palette.withOpacity(Palette.TEXT_MUTED, 0.55), 1.8);
+        group.getChildren().addAll(lens, handle);
+        return group;
+    }
+
+    public static Node homeIcon() {
+        Group group = new Group();
+        Polygon roof = new Polygon(0, 10, 12, 0, 24, 10);
+        roof.setFill(Color.TRANSPARENT);
+        roof.setStroke(Palette.CYAN);
+        roof.setStrokeWidth(2.0);
+        roof.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        Rectangle body = new Rectangle(4, 10, 16, 16);
+        body.setFill(Color.TRANSPARENT);
+        body.setStroke(Palette.CYAN);
+        body.setStrokeWidth(2.0);
+        group.getChildren().addAll(roof, body);
+        return group;
+    }
+
+    public static Node mapIcon() {
+        Group group = new Group();
+        Polyline map = new Polyline(0, 5, 8, 2, 17, 5, 26, 2, 26, 21, 17, 24, 8, 21, 0, 24, 0, 5);
+        styleStroke(map, Palette.withOpacity(Palette.TEXT_MUTED, 0.55), 2.0);
+        Line fold1 = new Line(8, 2, 8, 21);
+        Line fold2 = new Line(17, 5, 17, 24);
+        styleStroke(fold1, Palette.withOpacity(Palette.TEXT_MUTED, 0.55), 1.5);
+        styleStroke(fold2, Palette.withOpacity(Palette.TEXT_MUTED, 0.55), 1.5);
+        group.getChildren().addAll(map, fold1, fold2);
+        return group;
+    }
+
+    public static Node gearIcon() {
+        Group group = new Group();
+        Circle outer = new Circle(10, 10, 7);
+        outer.setFill(Color.TRANSPARENT);
+        outer.setStroke(Palette.withOpacity(Palette.TEXT_MUTED, 0.55));
+        outer.setStrokeWidth(2.0);
+        Circle inner = new Circle(10, 10, 2.5, Color.TRANSPARENT);
+        inner.setStroke(Palette.withOpacity(Palette.TEXT_MUTED, 0.55));
+        inner.setStrokeWidth(1.5);
         for (int i = 0; i < 8; i++) {
             double angle = Math.toRadians(i * 45.0);
-            double inner = radius + 13.0;
-            double outer = radius + 23.0;
-            Line ray = new Line(Math.cos(angle) * inner, Math.sin(angle) * inner, Math.cos(angle) * outer, Math.sin(angle) * outer);
-            ray.setStroke(Palette.withOpacity(Palette.YELLOW, 0.45));
-            ray.setStrokeWidth(2.0);
-            ray.setStrokeLineCap(StrokeLineCap.ROUND);
+            Line tick = new Line(10 + Math.cos(angle) * 9, 10 + Math.sin(angle) * 9,
+                    10 + Math.cos(angle) * 11, 10 + Math.sin(angle) * 11);
+            styleStroke(tick, Palette.withOpacity(Palette.TEXT_MUTED, 0.55), 1.6);
+            group.getChildren().add(tick);
+        }
+        group.getChildren().addAll(outer, inner);
+        return group;
+    }
+
+    public static Node droplet() {
+        Group group = new Group();
+        CubicCurve left = new CubicCurve(0, 18, -9, 6, -1, -8, 0, -14);
+        CubicCurve right = new CubicCurve(0, -14, 12, 0, 9, 13, 0, 18);
+        styleStroke(left, Palette.CYAN, 0.0);
+        styleStroke(right, Palette.CYAN, 0.0);
+        left.setFill(Palette.CYAN_DARK);
+        right.setFill(Palette.CYAN_DARK);
+        group.getChildren().addAll(left, right);
+        return group;
+    }
+
+    public static Node windMark() {
+        Group group = new Group();
+        Arc arc1 = new Arc(0, 9, 12, 6, 25, 120);
+        arc1.setFill(Color.TRANSPARENT);
+        arc1.setStroke(Palette.LIME);
+        arc1.setStrokeWidth(2.0);
+        arc1.setType(ArcType.OPEN);
+        arc1.setStrokeLineCap(StrokeLineCap.ROUND);
+        Arc arc2 = new Arc(-6, 17, 10, 5, 30, 110);
+        arc2.setFill(Color.TRANSPARENT);
+        arc2.setStroke(Palette.LIME);
+        arc2.setStrokeWidth(1.8);
+        arc2.setType(ArcType.OPEN);
+        arc2.setStrokeLineCap(StrokeLineCap.ROUND);
+        group.getChildren().addAll(arc1, arc2);
+        return group;
+    }
+
+    public static Node alertTriangle() {
+        Polygon triangle = new Polygon(0, 18, 12, 0, 24, 18);
+        triangle.setFill(Color.TRANSPARENT);
+        triangle.setStroke(Palette.ORANGE);
+        triangle.setStrokeWidth(2.0);
+        triangle.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        return triangle;
+    }
+
+    public static Node arcSun() {
+        Group group = new Group();
+        Circle halo = new Circle(0, 0, 72, Palette.withOpacity(Palette.YELLOW, 0.05));
+        Circle sun = new Circle(0, 0, 29, Palette.YELLOW);
+        group.getChildren().addAll(halo, sun);
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.toRadians(i * 45.0);
+            Line ray = new Line(Math.cos(angle) * 45, Math.sin(angle) * 45,
+                    Math.cos(angle) * 56, Math.sin(angle) * 56);
+            styleStroke(ray, Palette.withOpacity(Palette.YELLOW, 0.60), 2.0);
             group.getChildren().add(ray);
         }
         return group;
     }
 
-    public static Node smallCondition(WeatherCondition condition) {
+    public static Node conditionIcon(WeatherCondition condition, double size) {
         return switch (condition) {
-            case SUNNY -> centeredIcon(rawSmallSun(9.0, 0.85));
-            case PARTLY_CLOUDY -> centeredIcon(rawCloud(false));
-            case RAINY -> centeredIcon(rawRainCloud());
-            case CLEAR_NIGHT -> centeredIcon(rawMoon());
+            case SUNNY -> smallSun(size);
+            case PARTLY_CLOUDY, CLOUDY -> smallCloud(size);
+            case RAINY -> smallRain(size);
+            case CLEAR_NIGHT -> smallMoon(size);
+            case STORMY -> smallStorm(size);
+            case SNOWY -> smallSnow(size);
         };
     }
 
-    public static Node smallSun(double radius, double opacity) {
-        return centeredIcon(rawSmallSun(radius, opacity));
-    }
-
-    public static Node moon() {
-        return centeredIcon(rawMoon());
-    }
-
-    public static Node smallCloud(boolean darker) {
-        return centeredIcon(rawCloud(darker));
-    }
-
-    public static Node rainCloud() {
-        return centeredIcon(rawRainCloud());
-    }
-
-    public static Node droplet() {
-        SVGPath drop = path("M8 0 C14 6 17 12 17 17 C17 25 12 29 8 29 C4 29 0 25 0 17 C0 12 3 6 8 0Z");
-        drop.setFill(Palette.withOpacity(Palette.CYAN_DARK, 0.85));
-        return drop;
-    }
-
-    public static Node windMark() {
+    private static Node smallSun(double size) {
         Group group = new Group();
-        SVGPath top = path("M0 8 Q7 4 14 8");
-        SVGPath bottom = path("M-2 14 Q7 8 17 14");
-        for (SVGPath currentPath : new SVGPath[]{top, bottom}) {
-            currentPath.setFill(Color.TRANSPARENT);
-            currentPath.setStroke(Palette.LIME);
-            currentPath.setStrokeWidth(2.0);
-            currentPath.setStrokeLineCap(StrokeLineCap.ROUND);
-        }
-        group.getChildren().addAll(top, bottom);
+        double radius = size * 0.28;
+        Circle sun = new Circle(size / 2.0, size / 2.0, radius, Palette.YELLOW);
+        group.getChildren().add(sun);
         return group;
     }
 
-    public static Node alertTriangle() {
-        SVGPath path = path("M10 0 L20 16 L0 16Z");
-        path.setFill(Color.TRANSPARENT);
-        path.setStroke(Palette.ORANGE);
-        path.setStrokeWidth(1.7);
-        path.setStrokeLineJoin(StrokeLineJoin.ROUND);
-        return path;
-    }
-
-    public static Node homeIcon() {
+    private static Node smallMoon(double size) {
         Group group = new Group();
-        SVGPath house = path("M0 12 L10 2 L20 12 L20 26 L0 26Z");
-        house.setFill(Color.TRANSPARENT);
-        house.setStroke(Palette.CYAN);
-        house.setStrokeWidth(1.8);
-        Rectangle door = new Rectangle(7, 16, 6, 10);
-        door.setArcWidth(2);
-        door.setArcHeight(2);
-        door.setFill(Palette.CYAN);
-        group.getChildren().addAll(house, door);
-        return centeredIcon(group);
-    }
-
-    public static Node mapIcon() {
-        SVGPath map = path("M0 2 L7 0 L14 2 L21 0 L21 18 L14 16 L7 18 L0 16Z");
-        map.setFill(Color.TRANSPARENT);
-        map.setStroke(Palette.withOpacity(Palette.TEXT, 0.35));
-        map.setStrokeWidth(1.5);
-        return centeredIcon(map);
-    }
-
-    public static Node gearIcon() {
-        Group group = new Group();
-        Circle outer = new Circle(8, Color.TRANSPARENT);
-        outer.setStroke(Palette.withOpacity(Palette.TEXT, 0.35));
-        outer.setStrokeWidth(1.4);
-        Circle inner = new Circle(3, Palette.withOpacity(Palette.TEXT, 0.35));
-        group.getChildren().addAll(outer, inner);
-        return centeredIcon(group);
-    }
-
-    public static Node searchIcon() {
-        Group group = new Group();
-        Circle circle = new Circle(0, 0, 6.5);
-        circle.setFill(Color.TRANSPARENT);
-        circle.setStroke(Palette.withOpacity(Palette.TEXT, 0.32));
-        circle.setStrokeWidth(1.3);
-        Line line = new Line(5, 5, 10, 10);
-        line.setStroke(Palette.withOpacity(Palette.TEXT, 0.32));
-        line.setStrokeWidth(1.3);
-        line.setStrokeLineCap(StrokeLineCap.ROUND);
-        group.getChildren().addAll(circle, line);
+        Circle moon = new Circle(size / 2.0, size / 2.0, size * 0.28, Palette.withOpacity(Palette.TEXT_MUTED, 0.85));
+        Circle cut = new Circle(size / 2.0 + size * 0.15, size / 2.0 - size * 0.05, size * 0.28, Palette.SURFACE);
+        group.getChildren().addAll(moon, cut);
         return group;
     }
 
-    public static Node arcSun() {
+    private static Node smallCloud(double size) {
         Group group = new Group();
-        Arc halo = new Arc(0, 0, 72, 72, 0, 360);
-        halo.setType(ArcType.ROUND);
-        halo.setFill(Palette.withOpacity(Palette.YELLOW, 0.045));
-        group.getChildren().add(halo);
-        group.getChildren().add(sun(28.0));
-        return centeredIcon(group);
-    }
-
-    private static Circle rawSmallSun(double radius, double opacity) {
-        Circle circle = new Circle(radius, Palette.YELLOW);
-        circle.setOpacity(opacity);
-        return circle;
-    }
-
-    private static SVGPath rawMoon() {
-        SVGPath moon = path("M12 0 Q1 0 1 10 Q1 20 12 20 Q6 16 6 10 Q6 4 12 0Z");
-        moon.setFill(Palette.withOpacity(Palette.TEXT, 0.72));
-        return moon;
-    }
-
-    private static Group rawCloud(boolean darker) {
-        Group group = new Group();
-        Color primary = darker ? Color.web("#506070") : Palette.CLOUD_DARK;
-        Color secondary = darker ? Color.web("#607080") : Palette.CLOUD;
-        Ellipse left = new Ellipse(8, 8, 8, 5.5);
-        left.setFill(primary);
-        left.setOpacity(0.85);
-        Ellipse right = new Ellipse(15, 6, 6, 4.5);
-        right.setFill(secondary);
-        Rectangle base = new Rectangle(1, 8, 19, 5);
-        base.setArcWidth(5);
-        base.setArcHeight(5);
-        base.setFill(primary);
-        base.setOpacity(0.85);
-        group.getChildren().addAll(left, right, base);
+        Color cloudColor = Color.web("#8BA7C1");
+        Circle left = new Circle(size * 0.38, size * 0.52, size * 0.16, cloudColor);
+        Circle center = new Circle(size * 0.52, size * 0.46, size * 0.20, cloudColor);
+        Circle right = new Circle(size * 0.66, size * 0.53, size * 0.15, cloudColor);
+        Rectangle base = new Rectangle(size * 0.30, size * 0.50, size * 0.46, size * 0.15);
+        base.setArcWidth(size * 0.12);
+        base.setArcHeight(size * 0.12);
+        base.setFill(cloudColor);
+        group.getChildren().addAll(left, center, right, base);
         return group;
     }
 
-    private static Group rawRainCloud() {
-        Group group = new Group(rawCloud(true));
+    private static Node smallRain(double size) {
+        Group group = new Group(smallCloud(size));
         for (int i = 0; i < 3; i++) {
-            Line drop = new Line(5 + i * 5, 17, 3 + i * 5, 23);
-            drop.setStroke(Palette.CYAN_DARK);
-            drop.setStrokeWidth(1.5);
-            drop.setStrokeLineCap(StrokeLineCap.ROUND);
+            Line drop = new Line(size * (0.38 + i * 0.12), size * 0.72, size * (0.34 + i * 0.12), size * 0.88);
+            styleStroke(drop, Palette.CYAN_DARK, 2.0);
             group.getChildren().add(drop);
         }
         return group;
     }
 
-    private static Group centeredIcon(Node icon) {
-        Bounds bounds = icon.getLayoutBounds();
-        icon.setLayoutX(-bounds.getMinX() - bounds.getWidth() / 2.0);
-        icon.setLayoutY(-bounds.getMinY() - bounds.getHeight() / 2.0);
-        Group wrapper = new Group(icon);
-        return wrapper;
+    private static Node smallStorm(double size) {
+        Group group = new Group(smallCloud(size));
+        Polygon bolt = new Polygon(size * 0.53, size * 0.62, size * 0.43, size * 0.86, size * 0.55, size * 0.81, size * 0.47, size * 1.0, size * 0.68, size * 0.72);
+        bolt.setFill(Palette.YELLOW);
+        group.getChildren().add(bolt);
+        return group;
     }
 
-    private static SVGPath path(String content) {
-        SVGPath path = new SVGPath();
-        path.setContent(content);
-        return path;
+    private static Node smallSnow(double size) {
+        Group group = new Group(smallCloud(size));
+        Circle snow = new Circle(size * 0.5, size * 0.82, size * 0.04, Palette.TEXT);
+        group.getChildren().add(snow);
+        return group;
+    }
+
+    private static void styleStroke(Line line, Color color, double width) {
+        line.setStroke(color);
+        line.setStrokeWidth(width);
+        line.setStrokeLineCap(StrokeLineCap.ROUND);
+    }
+
+    private static void styleStroke(Polyline line, Color color, double width) {
+        line.setFill(Color.TRANSPARENT);
+        line.setStroke(color);
+        line.setStrokeWidth(width);
+        line.setStrokeLineCap(StrokeLineCap.ROUND);
+        line.setStrokeLineJoin(StrokeLineJoin.ROUND);
+    }
+
+    private static void styleStroke(CubicCurve curve, Color color, double width) {
+        curve.setStroke(color);
+        curve.setStrokeWidth(width);
+        curve.setStrokeLineCap(StrokeLineCap.ROUND);
     }
 }

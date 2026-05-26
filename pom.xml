@@ -6,7 +6,7 @@
 
     <groupId>fr.alescis</groupId>
     <artifactId>aelia</artifactId>
-    <version>0.3.8-SNAPSHOT</version>
+    <version>0.3.10-SNAPSHOT</version>
     <name>Aelia</name>
     <description>Accessible JavaFX weather dashboard inspired by a high-contrast desktop mockup.</description>
     <url>https://github.com/alescis-wuin/Aelia</url>

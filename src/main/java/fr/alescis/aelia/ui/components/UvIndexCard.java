@@ -25,22 +25,25 @@ public final class UvIndexCard extends CardPane {
         getChildren().add(title);
 
         double x = 20.0;
-        for (Color color : SEGMENT_COLORS) {
+        for (int segmentIndex = 0; segmentIndex < SEGMENT_COLORS.length; segmentIndex++) {
+            Color color = SEGMENT_COLORS[segmentIndex];
             Rectangle segment = new Rectangle(55, 8);
             segment.setLayoutX(x);
             segment.setLayoutY(34);
             segment.setArcWidth(8);
             segment.setArcHeight(8);
             segment.setFill(color);
+            TooltipSupport.install(segment, "Indice UV " + uvIndex + " · segment " + (segmentIndex + 1));
             getChildren().add(segment);
             x += 55.0;
         }
 
-        double knobX = 20 + (uvIndex / 11.0) * 330.0;
+        double knobX = 20 + GaugeMath.normalize(uvIndex, 0.0, 11.0) * 330.0;
         Circle knob = new Circle(knobX, 38, 6.5, Palette.TEXT);
         knob.setStroke(Palette.BACKGROUND);
         knob.setStrokeWidth(2.0);
         getChildren().add(knob);
+        TooltipSupport.install(knob, "Indice UV actuel : " + uvIndex);
 
         Label value = UiText.data(String.valueOf(uvIndex), "uv-value");
         value.setLayoutX(364);
@@ -57,6 +60,7 @@ public final class UvIndexCard extends CardPane {
         }
 
         buildInlineAlert(advice);
+        TooltipSupport.install(this, "Indice UV " + uvIndex + " · " + advice);
         AccessibilitySupport.describe(this, AccessibleRole.PARENT, "Indice ultraviolet " + uvIndex + ". Alerte ultraviolet élevée.", advice);
     }
 
@@ -90,6 +94,8 @@ public final class UvIndexCard extends CardPane {
         details.setFocusTraversable(true);
         details.setAccessibleText("Voir les détails de l'alerte ultraviolet");
 
+        TooltipSupport.install(background, "Alerte UV élevée · " + advice);
+        TooltipSupport.install(details, "Afficher les détails de l'alerte UV");
         getChildren().addAll(background, icon, exclamation, title, body, details);
     }
 }

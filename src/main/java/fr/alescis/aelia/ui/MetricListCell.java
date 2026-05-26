@@ -1,21 +1,19 @@
 package fr.alescis.aelia.ui;
 
-import fr.alescis.aelia.model.DataMetric;
+import fr.alescis.aelia.model.WeatherMetric;
 import javafx.scene.control.ListCell;
 
 /**
- * Compact accessible cell displaying metric names and categories.
+ * List cell for supported metrics in diagnostic views.
  */
-public final class MetricListCell extends ListCell<DataMetric> {
+public final class MetricListCell extends ListCell<WeatherMetric> {
     @Override
-    protected void updateItem(DataMetric item, boolean empty) {
-        super.updateItem(item, empty);
-        if (empty || item == null) {
+    protected void updateItem(WeatherMetric metric, boolean empty) {
+        super.updateItem(metric, empty);
+        if (empty || metric == null) {
             setText(null);
-            setAccessibleText(null);
-            return;
+        } else {
+            setText(metric.label() + " · " + metric.category() + " · " + metric.supportedPeriod());
         }
-        setText(item.displayName() + " · " + item.category().label());
-        setAccessibleText(item.displayName() + ", " + item.description());
     }
 }

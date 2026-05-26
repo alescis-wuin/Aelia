@@ -1,213 +1,136 @@
 package fr.alescis.aelia.provider.simulation;
 
+import fr.alescis.aelia.model.AirQuality;
 import fr.alescis.aelia.model.ApiLimit;
-import fr.alescis.aelia.model.DataCategory;
-import fr.alescis.aelia.model.DataKind;
-import fr.alescis.aelia.model.DataMetric;
+import fr.alescis.aelia.model.CurrentWeather;
+import fr.alescis.aelia.model.DailyForecast;
+import fr.alescis.aelia.model.HourlyForecast;
 import fr.alescis.aelia.model.LimitPeriod;
+import fr.alescis.aelia.model.LocationWeather;
+import fr.alescis.aelia.model.PollenLevel;
+import fr.alescis.aelia.model.PollenRisk;
+import fr.alescis.aelia.model.WeatherCondition;
+import fr.alescis.aelia.model.WeatherMetric;
 
-import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
- * Static simulated-provider catalog used by the application and tests.
+ * Central catalog for deterministic mockup values.
  */
 public final class SimulationCatalog {
-    private static final List<DataMetric> METRICS = List.of(
-            DataMetric.numeric(
-                    "air_temperature",
-                    "Air temperature",
-                    DataCategory.WEATHER,
-                    "°C",
-                    -20.0d,
-                    44.0d,
-                    1,
-                    "Standard air temperature, comparable to a shaded measurement."
-            ),
-            DataMetric.numeric(
-                    "sun_temperature_estimate",
-                    "Sun exposure estimate",
-                    DataCategory.WEATHER,
-                    "°C",
-                    -15.0d,
-                    58.0d,
-                    1,
-                    "Estimated outdoor thermal perception under direct sun exposure."
-            ),
-            DataMetric.numeric(
-                    "apparent_temperature",
-                    "Feels like",
-                    DataCategory.WEATHER,
-                    "°C",
-                    -28.0d,
-                    52.0d,
-                    1,
-                    "Perceived temperature derived from simulated humidity and wind."
-            ),
-            DataMetric.text(
-                    "condition",
-                    "Condition",
-                    DataCategory.WEATHER,
-                    DataKind.TEXT,
-                    "Compact text summary of the current simulated sky state."
-            ),
-            DataMetric.numeric(
-                    "wind_speed",
-                    "Wind",
-                    DataCategory.ATMOSPHERE,
-                    "km/h",
-                    0.0d,
-                    130.0d,
-                    0,
-                    "Near-surface wind speed."
-            ),
-            DataMetric.numeric(
-                    "humidity",
-                    "Humidity",
-                    DataCategory.ATMOSPHERE,
-                    "%",
-                    10.0d,
-                    100.0d,
-                    0,
-                    "Relative humidity near ground level."
-            ),
-            DataMetric.numeric(
-                    "precipitation_rate",
-                    "Rain rate",
-                    DataCategory.WEATHER,
-                    "mm/h",
-                    0.0d,
-                    40.0d,
-                    1,
-                    "Instant precipitation intensity."
-            ),
-            DataMetric.numeric(
-                    "cloud_cover",
-                    "Cloud cover",
-                    DataCategory.ATMOSPHERE,
-                    "%",
-                    0.0d,
-                    100.0d,
-                    0,
-                    "Sky coverage by clouds."
-            ),
-            DataMetric.text(
-                    "sunrise",
-                    "Sunrise",
-                    DataCategory.SUN,
-                    DataKind.TEMPORAL,
-                    "Approximate local sunrise time."
-            ),
-            DataMetric.text(
-                    "sunset",
-                    "Sunset",
-                    DataCategory.SUN,
-                    DataKind.TEMPORAL,
-                    "Approximate local sunset time."
-            ),
-            DataMetric.numeric(
-                    "uv_index",
-                    "UV index",
-                    DataCategory.SUN,
-                    "UVI",
-                    0.0d,
-                    11.0d,
-                    1,
-                    "Ultraviolet exposure index."
-            ),
-            DataMetric.numeric(
-                    "pm25",
-                    "PM2.5",
-                    DataCategory.AIR,
-                    "µg/m³",
-                    0.0d,
-                    90.0d,
-                    1,
-                    "Fine particulate matter concentration."
-            ),
-            DataMetric.numeric(
-                    "european_aqi",
-                    "European AQI",
-                    DataCategory.AIR,
-                    "AQI",
-                    0.0d,
-                    150.0d,
-                    0,
-                    "European air quality index."
-            ),
-            DataMetric.numeric(
-                    "grass_pollen",
-                    "Grass pollen",
-                    DataCategory.HEALTH,
-                    "grains/m³",
-                    0.0d,
-                    350.0d,
-                    0,
-                    "Grass pollen concentration estimate."
-            )
-    );
-
-    private static final Map<String, DataMetric> METRICS_BY_ID = METRICS.stream()
-            .collect(Collectors.toUnmodifiableMap(DataMetric::id, Function.identity()));
+    private static final LocalDate MOCK_DATE = LocalDate.of(2025, 5, 25);
+    private static final ZoneId PARIS_ZONE = ZoneId.of("Europe/Paris");
 
     private SimulationCatalog() {
     }
 
-    public static List<DataMetric> metrics() {
-        return METRICS;
-    }
-
-    public static Map<String, DataMetric> metricsById() {
-        return METRICS_BY_ID;
+    public static List<WeatherMetric> metrics() {
+        return List.of(
+                new WeatherMetric("temperature", "Température", "Météo", "°C", "Actuel · Horaire · Quotidien", -20.0, 45.0),
+                new WeatherMetric("humidity", "Humidité", "Atmosphère", "%", "Actuel · Horaire", 0.0, 100.0),
+                new WeatherMetric("wind", "Vent", "Atmosphère", "km/h", "Actuel · Horaire · Quotidien", 0.0, 140.0),
+                new WeatherMetric("pressure", "Pression", "Atmosphère", "hPa", "Actuel · Horaire", 940.0, 1060.0),
+                new WeatherMetric("uv", "Indice UV", "Santé", "", "Actuel · Horaire · Quotidien", 0.0, 12.0),
+                new WeatherMetric("aqi", "IQA", "Qualité de l'air", "", "Actuel · Horaire", 0.0, 500.0),
+                new WeatherMetric("pm25", "PM2.5", "Qualité de l'air", "µg/m³", "Actuel · Horaire", 0.0, 250.0),
+                new WeatherMetric("grass_pollen", "Pollen graminées", "Pollens", "niveau", "Actuel · Quotidien", 0.0, 4.0)
+        );
     }
 
     public static List<ApiLimit> limits() {
         return List.of(
-                ApiLimit.limited("Current value reads", LimitPeriod.SECOND, 4, "Local guard matching a modest remote API."),
-                ApiLimit.limited("Current value reads", LimitPeriod.MINUTE, 120, "Enough for manual UI usage and light polling."),
-                ApiLimit.limited("Active streams", LimitPeriod.STREAM, 8, "Maximum simulated subscriptions kept in memory."),
-                ApiLimit.limited("Minimum stream interval", LimitPeriod.SECOND, 1, "The service rejects sub-second subscriptions."),
-                ApiLimit.unmetered("Network calls", LimitPeriod.DAY, "No network request is performed by the simulated provider.")
+                ApiLimit.limited("Current snapshot", LimitPeriod.SECOND, 10, "requêtes"),
+                ApiLimit.limited("Subscriptions", LimitPeriod.CLIENT, 25, "flux actifs"),
+                ApiLimit.limited("Minimum interval", LimitPeriod.STREAM, 1, "seconde"),
+                new ApiLimit("Remote calls", LimitPeriod.NETWORK.label(), "aucun en simulation")
         );
     }
 
-    static List<MetricProfile> profiles() {
+    public static Map<String, MetricProfile> metricProfiles() {
+        CurrentWeather weather = currentWeather();
+        return Map.of(
+                "temperature", new MetricProfile("temperature", weather.temperatureCelsius(), 0.35, -20.0, 45.0, "°C"),
+                "humidity", new MetricProfile("humidity", weather.humidityPercent(), 1.25, 0.0, 100.0, "%"),
+                "wind", new MetricProfile("wind", weather.windSpeedKmh(), 1.5, 0.0, 140.0, "km/h"),
+                "pressure", new MetricProfile("pressure", weather.pressureHpa(), 0.8, 940.0, 1060.0, "hPa"),
+                "uv", new MetricProfile("uv", weather.uvIndex(), 0.2, 0.0, 12.0, ""),
+                "aqi", new MetricProfile("aqi", weather.airQuality().airQualityIndex(), 1.4, 0.0, 500.0, ""),
+                "pm25", new MetricProfile("pm25", weather.airQuality().pm25MicrogramsPerCubicMeter(), 0.8, 0.0, 250.0, "µg/m³"),
+                "grass_pollen", new MetricProfile("grass_pollen", 3.0, 0.0, 0.0, 4.0, "niveau")
+        );
+    }
+
+    public static List<LocationWeather> locations() {
         return List.of(
-                profile("air_temperature", 18.0d, -20.0d, 44.0d, 0.025d, 0.0028d, 6.0d, Duration.ofHours(24)),
-                profile("sun_temperature_estimate", 24.0d, -15.0d, 58.0d, 0.035d, 0.0032d, 11.0d, Duration.ofHours(24)),
-                profile("apparent_temperature", 17.0d, -28.0d, 52.0d, 0.030d, 0.0025d, 7.0d, Duration.ofHours(24)),
-                profile("wind_speed", 18.0d, 0.0d, 130.0d, 0.110d, 0.0040d, 8.0d, Duration.ofHours(8)),
-                profile("humidity", 64.0d, 10.0d, 100.0d, 0.180d, 0.0030d, 18.0d, Duration.ofHours(12)),
-                profile("precipitation_rate", 1.2d, 0.0d, 40.0d, 0.070d, 0.0120d, 2.5d, Duration.ofHours(6)),
-                profile("cloud_cover", 48.0d, 0.0d, 100.0d, 0.250d, 0.0038d, 28.0d, Duration.ofHours(10)),
-                profile("uv_index", 2.6d, 0.0d, 11.0d, 0.020d, 0.0050d, 4.8d, Duration.ofHours(24)),
-                profile("pm25", 12.0d, 0.0d, 90.0d, 0.080d, 0.0040d, 5.5d, Duration.ofHours(18)),
-                profile("european_aqi", 34.0d, 0.0d, 150.0d, 0.120d, 0.0035d, 15.0d, Duration.ofHours(18)),
-                profile("grass_pollen", 58.0d, 0.0d, 350.0d, 0.320d, 0.0024d, 70.0d, Duration.ofHours(24))
+                new LocationWeather("Paris", "France", WeatherCondition.SUNNY, 24, true),
+                new LocationWeather("Tokyo", "Japon", WeatherCondition.PARTLY_CLOUDY, 19, false),
+                new LocationWeather("New York", "USA", WeatherCondition.RAINY, 11, false),
+                new LocationWeather("Dubaï", "EAU", WeatherCondition.SUNNY, 38, false)
         );
     }
 
-    private static MetricProfile profile(
-            String metricId,
-            double base,
-            double minimum,
-            double maximum,
-            double volatility,
-            double recovery,
-            double cycleAmplitude,
-            Duration cycleDuration
-    ) {
-        return new MetricProfile(metric(metricId), base, minimum, maximum, volatility, recovery, cycleAmplitude, cycleDuration);
+    public static CurrentWeather currentWeather() {
+        return new CurrentWeather(
+                "Paris",
+                "Ensoleillé",
+                MOCK_DATE,
+                PARIS_ZONE,
+                24,
+                28,
+                17,
+                22,
+                LocalTime.of(6, 4),
+                LocalTime.of(21, 47),
+                62,
+                18,
+                "SO → NE",
+                32,
+                1018,
+                "↗ En hausse",
+                5,
+                "Protection solaire recommandée entre 11h et 16h",
+                new AirQuality(42, "BON", 12, 28, 18),
+                LocalTime.of(15, 30)
+        );
     }
 
-    private static DataMetric metric(String id) {
-        DataMetric metric = METRICS_BY_ID.get(id);
-        if (metric == null) {
-            throw new IllegalStateException("missing simulated metric: " + id);
-        }
-        return metric;
+    public static List<HourlyForecast> hourlyForecasts() {
+        return List.of(
+                new HourlyForecast(LocalTime.of(9, 0), WeatherCondition.SUNNY, 18, false),
+                new HourlyForecast(LocalTime.of(12, 0), WeatherCondition.SUNNY, 24, true),
+                new HourlyForecast(LocalTime.of(15, 0), WeatherCondition.SUNNY, 27, false),
+                new HourlyForecast(LocalTime.of(18, 0), WeatherCondition.PARTLY_CLOUDY, 23, false),
+                new HourlyForecast(LocalTime.of(21, 0), WeatherCondition.CLEAR_NIGHT, 19, false),
+                new HourlyForecast(LocalTime.MIDNIGHT, WeatherCondition.CLEAR_NIGHT, 16, false),
+                new HourlyForecast(LocalTime.of(3, 0), WeatherCondition.CLEAR_NIGHT, 14, false),
+                new HourlyForecast(LocalTime.of(6, 0), WeatherCondition.SUNNY, 15, false),
+                new HourlyForecast(LocalTime.of(9, 0), WeatherCondition.SUNNY, 20, false)
+        );
+    }
+
+    public static List<DailyForecast> dailyForecasts() {
+        return List.of(
+                new DailyForecast(MOCK_DATE.plusDays(1), "Lun. 26", WeatherCondition.SUNNY, 26, 15, 5, 14, 4, true),
+                new DailyForecast(MOCK_DATE.plusDays(2), "Mar. 27", WeatherCondition.PARTLY_CLOUDY, 22, 14, 40, 22, 3, false),
+                new DailyForecast(MOCK_DATE.plusDays(3), "Mer. 28", WeatherCondition.RAINY, 19, 13, 75, 28, 2, false),
+                new DailyForecast(MOCK_DATE.plusDays(4), "Jeu. 29", WeatherCondition.SUNNY, 27, 16, 0, 16, 6, false),
+                new DailyForecast(MOCK_DATE.plusDays(5), "Ven. 30", WeatherCondition.SUNNY, 29, 18, 0, 12, 7, false),
+                new DailyForecast(MOCK_DATE.plusDays(6), "Sam. 31", WeatherCondition.SUNNY, 26, 15, 10, 15, 5, false),
+                new DailyForecast(MOCK_DATE.plusDays(7), "Dim. 01", WeatherCondition.SUNNY, 28, 17, 0, 18, 5, false)
+        );
+    }
+
+    public static List<PollenRisk> pollenRisks() {
+        return new ArrayList<>(List.of(
+                new PollenRisk("Graminées", PollenLevel.HIGH),
+                new PollenRisk("Bouleau", PollenLevel.MODERATE),
+                new PollenRisk("Olivier", PollenLevel.LOW),
+                new PollenRisk("Ambroisie", PollenLevel.NONE)
+        ));
     }
 }

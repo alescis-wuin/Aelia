@@ -176,7 +176,6 @@
     -fx-font-weight: 600;
 }
 
-
 .hero-condition {
     -fx-text-fill: #9AA7BA;
     -fx-font-family: "Luciole", "Segoe UI", sans-serif;
@@ -516,4 +515,33 @@
     -fx-stroke-width: 1px;
     -fx-arc-width: 12px;
     -fx-arc-height: 12px;
+}
+
+.chart-crosshair-line {
+    -fx-stroke: rgba(255, 255, 255, 0.42);
+    -fx-stroke-width: 1px;
+    -fx-stroke-dash-array: 3 5;
+}
+
+.work-in-progress-card {
+    -fx-background-color: #101B31;
+    -fx-background-radius: 22px;
+}
+
+.work-in-progress-title {
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 18px;
+    -fx-font-weight: 800;
+    -fx-letter-spacing: 0.25em;
+}
+
+.work-in-progress-body {
+    -fx-text-fill: #00E5FF;
+    -fx-font-size: 24px;
+    -fx-font-weight: 800;
+}
+
+.work-in-progress-hint {
+    -fx-text-fill: #9AA7BA;
+    -fx-font-size: 12px;
 }

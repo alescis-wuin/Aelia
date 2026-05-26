@@ -2,35 +2,39 @@ package fr.alescis.aelia.model;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.OptionalDouble;
 
 /**
- * Immutable value returned by a weather data provider.
+ * Generic typed metric value used by provider composition code.
  */
-public record MetricValue(
-        DataMetric metric,
-        Instant timestamp,
-        OptionalDouble numericValue,
-        String textValue
-) {
+public record MetricValue(String metricId, double value, String unit, Instant measuredAt, String textValue) {
     public MetricValue {
-        metric = Objects.requireNonNull(metric, "metric");
-        timestamp = Objects.requireNonNull(timestamp, "timestamp");
-        numericValue = Objects.requireNonNull(numericValue, "numericValue");
-        textValue = Objects.requireNonNull(textValue, "textValue").trim();
-        if (metric.kind() == DataKind.NUMERIC && numericValue.isEmpty()) {
-            throw new IllegalArgumentException("numeric metrics require a numeric value");
+        if (metricId == null || metricId.isBlank()) {
+            throw new IllegalArgumentException("Metric id is required.");
         }
-        if (metric.kind() != DataKind.NUMERIC && textValue.isBlank()) {
-            throw new IllegalArgumentException("text metrics require a text value");
-        }
+        unit = unit == null ? "" : unit.trim();
+        measuredAt = Objects.requireNonNull(measuredAt, "measuredAt");
+        textValue = textValue == null ? "" : textValue.trim();
     }
 
-    public static MetricValue numeric(DataMetric metric, Instant timestamp, double value) {
-        return new MetricValue(metric, timestamp, OptionalDouble.of(value), "");
+    public MetricValue(String metricId, double value, String unit, Instant measuredAt) {
+        this(metricId, value, unit, measuredAt, "");
     }
 
-    public static MetricValue text(DataMetric metric, Instant timestamp, String value) {
-        return new MetricValue(metric, timestamp, OptionalDouble.empty(), value);
+    public static MetricValue numeric(DataMetric metric, Instant measuredAt, double value) {
+        Objects.requireNonNull(metric, "metric");
+        return new MetricValue(metric.id(), value, metric.unit(), measuredAt);
+    }
+
+    public static MetricValue text(DataMetric metric, Instant measuredAt, String value) {
+        Objects.requireNonNull(metric, "metric");
+        return new MetricValue(metric.id(), Double.NaN, metric.unit(), measuredAt, value);
+    }
+
+    public DataMetric metric() {
+        return new DataMetric(metricId, metricId, DataCategory.WEATHER, textValue.isBlank() ? DataKind.NUMERIC : DataKind.TEXT, unit);
+    }
+
+    public Instant timestamp() {
+        return measuredAt;
     }
 }

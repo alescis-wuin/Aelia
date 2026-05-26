@@ -1,6 +1,7 @@
 package fr.alescis.aelia.model;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Aggregated read model consumed by the JavaFX dashboard.
@@ -15,14 +16,12 @@ public record DashboardSnapshot(
         List<ApiLimit> apiLimits
 ) {
     public DashboardSnapshot {
-        locations = List.copyOf(locations);
-        hourlyForecasts = List.copyOf(hourlyForecasts);
-        dailyForecasts = List.copyOf(dailyForecasts);
-        pollenRisks = List.copyOf(pollenRisks);
-        supportedMetrics = List.copyOf(supportedMetrics);
-        apiLimits = List.copyOf(apiLimits);
-        if (currentWeather == null) {
-            throw new IllegalArgumentException("Current weather is required.");
-        }
+        locations = List.copyOf(Objects.requireNonNull(locations, "locations"));
+        currentWeather = Objects.requireNonNull(currentWeather, "currentWeather");
+        hourlyForecasts = List.copyOf(Objects.requireNonNull(hourlyForecasts, "hourlyForecasts"));
+        dailyForecasts = List.copyOf(Objects.requireNonNull(dailyForecasts, "dailyForecasts"));
+        pollenRisks = List.copyOf(Objects.requireNonNull(pollenRisks, "pollenRisks"));
+        supportedMetrics = List.copyOf(Objects.requireNonNull(supportedMetrics, "supportedMetrics"));
+        apiLimits = List.copyOf(Objects.requireNonNull(apiLimits, "apiLimits"));
     }
 }

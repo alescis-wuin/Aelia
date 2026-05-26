@@ -3,7 +3,7 @@ package fr.alescis.aelia.provider;
 import fr.alescis.aelia.model.MetricReading;
 
 /**
- * Observer notified when a provider publishes a metric reading.
+ * Listener notified by providers when a subscribed metric changes.
  */
 @FunctionalInterface
 public interface WeatherUpdateListener {

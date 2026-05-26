@@ -22,8 +22,10 @@ public record WeatherMetric(
         if (category == null || category.isBlank()) {
             throw new IllegalArgumentException("Metric category is required.");
         }
-        if (unit == null) {
-            throw new IllegalArgumentException("Metric unit is required.");
+        unit = unit == null ? "" : unit;
+        supportedPeriod = supportedPeriod == null ? "" : supportedPeriod;
+        if (maximumRealisticValue < minimumRealisticValue) {
+            throw new IllegalArgumentException("Metric maximum must be greater than or equal to minimum.");
         }
     }
 
@@ -44,5 +46,4 @@ public record WeatherMetric(
     public double minimum() {
         return minimumRealisticValue;
     }
-
 }

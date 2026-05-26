@@ -27,6 +27,10 @@ public record SubscriptionSnapshot(
         }
     }
 
+    public SubscriptionSnapshot(UUID id, DataMetric metric, Duration interval, Instant createdAt) {
+        this(id, Objects.requireNonNull(metric, "metric").id(), interval, createdAt, Optional.empty());
+    }
+
     private static String requireText(String value, String name) {
         String normalized = Objects.requireNonNull(value, name).trim();
         if (normalized.isEmpty()) {

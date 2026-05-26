@@ -41,6 +41,7 @@ public final class DonutGaugeCard extends CardPane {
             getChildren().add(icon);
         }
 
+        double progressValue = GaugeMath.clamp(normalizedProgress, 0.0, 1.0);
         double centerX = 81.0;
         double centerY = 84.0;
         double radius = 36.0;
@@ -49,7 +50,7 @@ public final class DonutGaugeCard extends CardPane {
         base.setStroke(Palette.BORDER_SOFT);
         base.setStrokeWidth(8.0);
 
-        Arc progress = new Arc(centerX, centerY, radius, radius, 90, -360.0 * normalizedProgress);
+        Arc progress = new Arc(centerX, centerY, radius, radius, 90, -360.0 * progressValue);
         progress.setFill(Color.TRANSPARENT);
         progress.setStroke(accent);
         progress.setStrokeWidth(8.0);
@@ -71,6 +72,10 @@ public final class DonutGaugeCard extends CardPane {
         hintLabel.setPrefWidth(80);
 
         getChildren().addAll(base, progress, centerText, statusLabel, hintLabel);
+        String tooltipText = title + " : " + value + (unit.isBlank() ? "" : " " + unit) + " · " + status + " · " + rightHint;
+        TooltipSupport.install(this, tooltipText);
+        TooltipSupport.install(base, tooltipText);
+        TooltipSupport.install(progress, tooltipText);
         AccessibilitySupport.describe(this, AccessibleRole.TEXT, accessibleText, "Carte de mesure avec jauge circulaire.");
     }
 

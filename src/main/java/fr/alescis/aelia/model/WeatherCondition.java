@@ -1,13 +1,16 @@
 package fr.alescis.aelia.model;
 
 /**
- * Normalized weather conditions used by the UI and providers.
+ * UI-neutral weather condition categories.
  */
 public enum WeatherCondition {
     SUNNY("Ensoleillé"),
     PARTLY_CLOUDY("Nuageux"),
+    CLOUDY("Couvert"),
     RAINY("Pluvieux"),
-    CLEAR_NIGHT("Nuit claire");
+    CLEAR_NIGHT("Nuit claire"),
+    STORMY("Orageux"),
+    SNOWY("Neigeux");
 
     private final String label;
 

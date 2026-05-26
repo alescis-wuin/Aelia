@@ -15,7 +15,7 @@ import java.util.Objects;
 /**
  * Application service that isolates controllers and views from provider implementations.
  */
-public final class AeliaWeatherService implements AutoCloseable {
+public final class AeliaWeatherService implements WeatherService {
 
     private final WeatherDashboardProvider provider;
 
@@ -23,26 +23,32 @@ public final class AeliaWeatherService implements AutoCloseable {
         this.provider = Objects.requireNonNull(provider, "provider");
     }
 
+    @Override
     public DashboardSnapshot currentSnapshot() {
         return provider.currentSnapshot();
     }
 
+    @Override
     public List<WeatherMetric> supportedMetrics() {
         return provider.supportedMetrics();
     }
 
+    @Override
     public List<ApiLimit> apiLimits() {
         return provider.apiLimits();
     }
 
+    @Override
     public MetricReading currentValue(String metricId) {
         return provider.currentValue(metricId);
     }
 
+    @Override
     public SubscriptionHandle subscribe(SubscriptionRequest request, WeatherUpdateListener listener) {
         return provider.subscribe(request, listener);
     }
 
+    @Override
     public void unsubscribe(SubscriptionHandle handle) {
         provider.unsubscribe(handle);
     }

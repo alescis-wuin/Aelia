@@ -26,6 +26,9 @@ public record ApiLimit(String name, String period, String value) {
      * @return immutable API limit entry
      */
     public static ApiLimit limited(String name, LimitPeriod period, int amount, String unit) {
+        if (period == null) {
+            throw new IllegalArgumentException("Limit period is required.");
+        }
         if (amount < 0) {
             throw new IllegalArgumentException("Limit amount must be positive or zero.");
         }
@@ -42,6 +45,9 @@ public record ApiLimit(String name, String period, String value) {
      * @return immutable API limit entry
      */
     public static ApiLimit unmetered(String name, LimitPeriod period, String unit) {
+        if (period == null) {
+            throw new IllegalArgumentException("Limit period is required.");
+        }
         String normalizedUnit = unit == null || unit.isBlank() ? "requests" : unit.trim();
         return new ApiLimit(name, period.label(), "unmetered " + normalizedUnit);
     }

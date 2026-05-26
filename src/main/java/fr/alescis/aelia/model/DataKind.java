@@ -1,10 +1,15 @@
 package fr.alescis.aelia.model;
 
 /**
- * Describes the value representation used by a metric.
+ * Describes either a provider value representation or a future temporal data scope.
  */
 public enum DataKind {
     NUMERIC,
     TEXT,
-    TEMPORAL
+    TEMPORAL,
+    CURRENT,
+    HOURLY,
+    DAILY,
+    OBSERVED,
+    FORECAST
 }
