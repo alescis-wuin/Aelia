@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -28,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * Small tile loader with a distinct User-Agent and a local minimum seven-day cache.
+ * Small tile loader with a distinct User-Agent, viewport-only scheduling, request throttling and a local cache.
  */
 final class MapTileCache implements AutoCloseable {
     static final double TILE_SIZE = 256.0;
@@ -36,22 +37,28 @@ final class MapTileCache implements AutoCloseable {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(25);
     private static final Duration MINIMUM_CACHE_TTL = Duration.ofDays(7);
+    private static final long DEFAULT_REQUEST_INTERVAL_MILLIS = 350L;
     private static final String USER_AGENT = System.getProperty(
             "aelia.map.userAgent",
-            "Aelia/0.4.1 (+https://github.com/alescis-wuin/Aelia)"
+            "Aelia/0.4.1 (+https://github.com/alescis-wuin/Aelia; contact: alescis-wuin)"
     );
 
-    private final String tileUrlTemplate;
+    private final MapTileProvider provider;
     private final Path cacheRoot;
     private final ExecutorService executorService;
     private final HttpClient httpClient;
     private final Map<String, CompletableFuture<Path>> inFlight = new ConcurrentHashMap<>();
+    private final Set<String> activeTileKeys = ConcurrentHashMap.newKeySet();
     private final Image placeholder = placeholderImage();
+    private final long requestIntervalMillis;
+    private final Object rateLimitLock = new Object();
+    private long nextRequestAtMillis;
 
-    MapTileCache(String tileUrlTemplate) {
-        this.tileUrlTemplate = Objects.requireNonNull(tileUrlTemplate, "tileUrlTemplate");
-        this.cacheRoot = defaultCacheRoot();
-        this.executorService = Executors.newFixedThreadPool(3, new TileThreadFactory());
+    MapTileCache(MapTileProvider provider) {
+        this.provider = Objects.requireNonNull(provider, "provider");
+        this.cacheRoot = defaultCacheRoot().resolve(provider.id());
+        this.requestIntervalMillis = configuredRequestIntervalMillis();
+        this.executorService = Executors.newSingleThreadExecutor(new TileThreadFactory());
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
                 .executor(executorService)
@@ -61,6 +68,19 @@ final class MapTileCache implements AutoCloseable {
 
     Image placeholder() {
         return placeholder;
+    }
+
+    MapTileProvider provider() {
+        return provider;
+    }
+
+    void setActiveTiles(Set<String> keys) {
+        activeTileKeys.clear();
+        activeTileKeys.addAll(keys);
+    }
+
+    String key(int zoom, int tileX, int tileY) {
+        return zoom + "/" + tileX + "/" + tileY;
     }
 
     void loadTile(int zoom, int tileX, int tileY, ImageView imageView, Consumer<String> failureHandler) {
@@ -76,28 +96,40 @@ final class MapTileCache implements AutoCloseable {
             imageView.setImage(placeholder);
         }
 
+        if (!activeTileKeys.contains(key)) {
+            return;
+        }
+
         CompletableFuture<Path> future = inFlight.computeIfAbsent(key, ignored -> CompletableFuture.supplyAsync(() -> {
             try {
-                return fetchTile(zoom, tileX, tileY, cachedPath);
+                return fetchTileIfStillVisible(key, zoom, tileX, tileY, cachedPath);
             } catch (IOException exception) {
                 throw new IllegalStateException(exception);
             }
         }, executorService).whenComplete((path, error) -> inFlight.remove(key)));
 
         future.whenComplete((path, error) -> {
-            if (error == null && path != null && Files.isRegularFile(path)) {
+            if (error == null && path != null && Files.isRegularFile(path) && activeTileKeys.contains(key)) {
                 Platform.runLater(() -> imageView.setImage(fileImage(path)));
             } else if (!Files.isRegularFile(cachedPath) && failureHandler != null) {
-                Platform.runLater(() -> failureHandler.accept("Tuiles indisponibles. Vérifiez la connexion ou changez de fournisseur de tuiles."));
+                Platform.runLater(() -> failureHandler.accept("Tuiles indisponibles. Vérifiez la connexion, le fournisseur ou le cache local."));
             }
         });
     }
 
-    private Path fetchTile(int zoom, int tileX, int tileY, Path targetPath) throws IOException {
+    private Path fetchTileIfStillVisible(String key, int zoom, int tileX, int tileY, Path targetPath) throws IOException {
+        if (!activeTileKeys.contains(key)) {
+            throw new IOException("Tile is no longer visible: " + key);
+        }
+        throttle();
+        if (!activeTileKeys.contains(key)) {
+            throw new IOException("Tile is no longer visible after throttling: " + key);
+        }
         URI uri = URI.create(tileUrl(zoom, tileX, tileY));
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .timeout(REQUEST_TIMEOUT)
                 .header("User-Agent", USER_AGENT)
+                .header("Accept", "image/png,image/*;q=0.8,*/*;q=0.5")
                 .GET()
                 .build();
         HttpResponse<byte[]> response;
@@ -108,6 +140,9 @@ final class MapTileCache implements AutoCloseable {
             throw new IOException("Tile request interrupted", exception);
         }
         int status = response.statusCode();
+        if (status == 304 && Files.isRegularFile(targetPath)) {
+            return targetPath;
+        }
         if (status != 200) {
             throw new IOException("Tile request failed with HTTP " + status + " for " + uri);
         }
@@ -116,6 +151,22 @@ final class MapTileCache implements AutoCloseable {
         Files.write(temporary, response.body());
         Files.move(temporary, targetPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         return targetPath;
+    }
+
+    private void throttle() throws IOException {
+        synchronized (rateLimitLock) {
+            long now = System.currentTimeMillis();
+            long waitMillis = nextRequestAtMillis - now;
+            if (waitMillis > 0L) {
+                try {
+                    Thread.sleep(waitMillis);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Tile throttle interrupted", exception);
+                }
+            }
+            nextRequestAtMillis = System.currentTimeMillis() + requestIntervalMillis;
+        }
     }
 
     private boolean expired(Path cachedPath) {
@@ -139,14 +190,10 @@ final class MapTileCache implements AutoCloseable {
     }
 
     private String tileUrl(int zoom, int tileX, int tileY) {
-        return tileUrlTemplate
+        return provider.urlTemplate()
                 .replace("{z}", Integer.toString(zoom))
                 .replace("{x}", Integer.toString(tileX))
                 .replace("{y}", Integer.toString(tileY));
-    }
-
-    private static String key(int zoom, int tileX, int tileY) {
-        return zoom + "/" + tileX + "/" + tileY;
     }
 
     private static Path defaultCacheRoot() {
@@ -159,6 +206,18 @@ final class MapTileCache implements AutoCloseable {
             return Path.of(xdgCache).resolve("aelia").resolve("map-tiles");
         }
         return Path.of(System.getProperty("user.home", "."), ".cache", "aelia", "map-tiles");
+    }
+
+    private static long configuredRequestIntervalMillis() {
+        String configured = System.getProperty("aelia.map.tileRequestIntervalMillis");
+        if (configured == null || configured.isBlank()) {
+            return DEFAULT_REQUEST_INTERVAL_MILLIS;
+        }
+        try {
+            return Math.max(100L, Long.parseLong(configured.trim()));
+        } catch (NumberFormatException exception) {
+            return DEFAULT_REQUEST_INTERVAL_MILLIS;
+        }
     }
 
     private static Image placeholderImage() {
@@ -177,6 +236,7 @@ final class MapTileCache implements AutoCloseable {
 
     @Override
     public void close() {
+        activeTileKeys.clear();
         inFlight.clear();
         executorService.shutdownNow();
     }
