@@ -19,8 +19,10 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -39,14 +41,10 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private static final int MIN_ZOOM = 2;
     private static final int MAX_ZOOM = 18;
     private static final double MAX_MERCATOR_LATITUDE = 85.05112878;
-    private static final String TILE_URL_TEMPLATE = System.getProperty(
-            "aelia.map.tileUrl",
-            "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-    );
 
     private final Consumer<LocationWeather> addLocationHandler;
     private final NominatimReverseGeocoder reverseGeocoder = new NominatimReverseGeocoder();
-    private final MapTileCache tileCache = new MapTileCache(TILE_URL_TEMPLATE);
+    private final MapTileCache tileCache = new MapTileCache(MapTileProvider.selected());
     private final AtomicInteger selectionVersion = new AtomicInteger();
 
     private final Pane mapViewport = new Pane();
@@ -54,7 +52,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private final Pane markerLayer = new Pane();
     private final Label selectedName = UiText.label("Cliquez sur la carte", "map-selection-title");
     private final Label selectedCoordinates = UiText.label("Aucune coordonnée sélectionnée", "map-coordinates");
-    private final Label status = UiText.label("La carte utilise des tuiles OpenStreetMap rendues en JavaFX.", "map-status");
+    private final Label status = UiText.label("La carte charge seulement les tuiles visibles, avec cache local et temporisation.", "map-status");
     private final Button addButton = new Button("Ajouter à mes zones");
 
     private ReverseGeocodeResult selectedResult;
@@ -94,7 +92,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         hint.setLayoutY(44);
         hint.setPrefWidth(720);
 
-        Label attribution = UiText.label("© OpenStreetMap contributors · Nominatim", "map-attribution");
+        Label attribution = UiText.label(tileCache.provider().attribution() + " · Nominatim", "map-attribution");
         attribution.setLayoutX(800);
         attribution.setLayoutY(44);
         attribution.setPrefWidth(260);
@@ -220,13 +218,13 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         Label noteTitle = UiText.section("Notes");
         noteTitle.setLayoutX(18);
         noteTitle.setLayoutY(292);
-        Label note = UiText.label("La carte charge uniquement les tuiles visibles. Les coordonnées sélectionnées seront réutilisables par un futur provider météo distant.", "map-note");
+        Label note = UiText.label("La carte ne télécharge pas le monde entier : seules les tuiles visibles au zoom courant sont planifiées.", "map-note");
         note.setLayoutX(18);
         note.setLayoutY(326);
         note.setPrefWidth(222);
         note.setWrapText(true);
 
-        Label policy = UiText.label("Aucun préchargement massif ni mode hors-ligne n'est activé afin de respecter les règles d'usage des tuiles publiques.", "map-note-muted");
+        Label policy = UiText.label("Cache disque ≥ 7 jours, User-Agent applicatif, requêtes espacées. Changez de fournisseur si tile.openstreetmap.org bloque encore temporairement.", "map-note-muted");
         policy.setLayoutX(18);
         policy.setLayoutY(438);
         policy.setPrefWidth(222);
@@ -245,10 +243,19 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         int tileCount = tileCount();
         double topLeftX = centerWorldX - MAP_WIDTH / 2.0;
         double topLeftY = centerWorldY - MAP_HEIGHT / 2.0;
-        int startTileX = (int) Math.floor(topLeftX / TILE_SIZE) - 1;
-        int endTileX = (int) Math.floor((topLeftX + MAP_WIDTH) / TILE_SIZE) + 1;
-        int startTileY = Math.max(0, (int) Math.floor(topLeftY / TILE_SIZE) - 1);
-        int endTileY = Math.min(tileCount - 1, (int) Math.floor((topLeftY + MAP_HEIGHT) / TILE_SIZE) + 1);
+        int startTileX = (int) Math.floor(topLeftX / TILE_SIZE);
+        int endTileX = (int) Math.floor((topLeftX + MAP_WIDTH - 1.0) / TILE_SIZE);
+        int startTileY = Math.max(0, (int) Math.floor(topLeftY / TILE_SIZE));
+        int endTileY = Math.min(tileCount - 1, (int) Math.floor((topLeftY + MAP_HEIGHT - 1.0) / TILE_SIZE));
+
+        Set<String> visibleTileKeys = new LinkedHashSet<>();
+        for (int tileY = startTileY; tileY <= endTileY; tileY++) {
+            for (int tileX = startTileX; tileX <= endTileX; tileX++) {
+                int wrappedTileX = Math.floorMod(tileX, tileCount);
+                visibleTileKeys.add(tileCache.key(zoom, wrappedTileX, tileY));
+            }
+        }
+        tileCache.setActiveTiles(visibleTileKeys);
 
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
