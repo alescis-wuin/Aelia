@@ -1,27 +1,15 @@
 # Aelia
 
-A Java 21, JavaFX, Maven and AtlantaFX starter for a weather utility application.
+Aelia is a Java 21, JavaFX, Maven and AtlantaFX weather dashboard prototype.
 
-The first implementation uses a local simulated provider instead of a remote weather API. The provider exposes the same contract expected from future remote adapters: supported data, API limits, current values, stream subscriptions and unsubscriptions.
-
-## Features
-
-- JavaFX MVC structure with a provider-facing port.
-- AtlantaFX dark theme plus a high-contrast custom stylesheet.
-- Simulated weather, air-quality, UV and pollen data with realistic bounds and smooth variation.
-- Current-value requests for any supported metric.
-- Live subscriptions with a configurable interval.
-- Local API-limit and supported-data tables.
-- Keyboard-friendly controls, tooltips and JavaFX accessibility metadata.
-- Maven build, unit tests, GitHub Actions workflow and Git/GitHub bootstrap script.
+This iteration focuses on reproducing the supplied desktop weather mockup with a clean, accessible and maintainable JavaFX implementation. The view is backed by a deterministic simulated provider and does not call any remote API.
 
 ## Requirements
 
 - Java 21
 - Maven 3.9+
 - Git
-- GitHub CLI `gh` only when remote repository creation and branch protection are required
-- Make, optional but convenient
+- Make, optional
 
 ## Run
 
@@ -35,31 +23,37 @@ mvn javafx:run
 mvn test
 ```
 
-## Build
+## Verify
 
 ```bash
 mvn verify
 ```
 
-## GitHub bootstrap
+## Optional local fonts
+
+The project is configured to use Luciole for general text and Hack for data values when local font files are present under `src/main/resources/fr/alescis/aelia/fonts/`.
 
 ```bash
-./init-project.sh
+make import-fonts \
+  LUCIOLE_ZIP=/path/to/Luciole_webfonts.zip \
+  HACK_ZIP=/path/to/Hack-v3.003-ttf.zip
 ```
 
-The script can update Maven coordinates, Java packages and repository metadata, initialize Git, create the remote GitHub repository, push `main`, create `testing` and `develop`, set `develop` as the default branch and protect all three branches with pull-request rules.
-
-## Make shortcuts
-
-```bash
-make run
-make test
-make verify
-make init
-make feature-start name=my-change
-make feature-push
-```
+The application remains usable with system fallbacks when the fonts are not imported.
 
 ## Documentation
 
-Project documentation is stored under `docs/V0.1/`.
+Versioned documentation is stored under `docs/V0.3/`, with incremental UI correction notes under `docs/V0.3.8/`.
+
+## Non-modular runtime
+
+This iteration intentionally uses a classpath-based JavaFX launch instead of `module-info.java`. This keeps the first UI-heavy version easier to compile in Maven and IntelliJ while the dashboard components are still evolving.
+
+
+## V0.3.3 build compatibility
+
+This build includes compatibility helpers for `ApiLimit.limited`, `ApiLimit.unmetered` and `WeatherMetric.maximum`.
+
+## V0.3.8 hero and navigation alignment fix
+
+This iteration refines the latest reported hero and bottom-navigation issues: bottom icons are centered above their labels, the hero date badge now includes the selected city, the weather condition is displayed below the sun icon, and the temperature block is grouped for more consistent vertical centering.

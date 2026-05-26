@@ -1,66 +1,42 @@
 package fr.alescis.aelia.provider.simulation;
 
+import fr.alescis.aelia.model.DataMetric;
 import fr.alescis.aelia.model.MetricValue;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 
 /**
- * Slowly evolving categorical weather condition state.
+ * Slowly changing text state for simulated weather conditions.
  */
 final class WeatherConditionState {
-
     private static final List<String> CONDITIONS = List.of(
-            "Clear sky",
-            "Mostly sunny",
-            "Partly cloudy",
-            "Overcast",
+            "Clear",
+            "Bright clouds",
+            "Cloudy",
             "Light rain",
-            "Moderate rain",
-            "Heavy rain",
-            "Thunderstorm",
-            "Fog"
+            "Windy",
+            "Dense clouds"
     );
 
+    private final DataMetric metric;
     private final Random random;
-    private int index;
+    private String currentCondition = "Bright clouds";
     private Instant nextChange;
 
-    WeatherConditionState(Random random, Instant initialInstant) {
-        this.random = Objects.requireNonNull(random, "random");
-        this.index = 2;
-        this.nextChange = initialInstant.plus(randomDuration());
+    WeatherConditionState(DataMetric metric, long seed, Instant now) {
+        this.metric = metric;
+        this.random = new Random(seed);
+        this.nextChange = now.plus(Duration.ofMinutes(8));
     }
 
     synchronized MetricValue sample(Instant now) {
-        Objects.requireNonNull(now, "now");
-        while (!now.isBefore(nextChange)) {
-            index = nextIndex();
-            nextChange = nextChange.plus(randomDuration());
+        if (!now.isBefore(nextChange)) {
+            currentCondition = CONDITIONS.get(random.nextInt(CONDITIONS.size()));
+            nextChange = now.plus(Duration.ofMinutes(6 + random.nextInt(16)));
         }
-        return MetricValue.text(SimulationCatalog.weatherConditionMetric(), now, CONDITIONS.get(index), 0.92);
-    }
-
-    private int nextIndex() {
-        double roll = random.nextDouble();
-        if (roll < 0.60) {
-            return index;
-        }
-        int offset = roll < 0.85 ? (random.nextBoolean() ? 1 : -1) : (random.nextBoolean() ? 2 : -2);
-        int next = index + offset;
-        if (next < 0) {
-            return 0;
-        }
-        if (next >= CONDITIONS.size()) {
-            return CONDITIONS.size() - 1;
-        }
-        return next;
-    }
-
-    private Duration randomDuration() {
-        return Duration.ofMinutes(8L + random.nextInt(28));
+        return MetricValue.text(metric, now, currentCondition);
     }
 }

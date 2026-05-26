@@ -1,50 +1,50 @@
 package fr.alescis.aelia.service;
 
+import fr.alescis.aelia.model.MetricValue;
+import fr.alescis.aelia.ports.WeatherUpdateListener;
 import fr.alescis.aelia.provider.simulation.SimulatedWeatherDataProvider;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class WeatherServiceTest {
-
-    @Test
-    void unsupportedMetricIsRejected() {
-        try (WeatherService service = new WeatherService(new SimulatedWeatherDataProvider())) {
-            assertThrows(IllegalArgumentException.class, () -> service.currentValue("missing_metric"));
-        }
-    }
 
     @Test
     void intervalValidationRejectsSubSecondStreams() {
         try (WeatherService service = new WeatherService(new SimulatedWeatherDataProvider())) {
             assertThrows(IllegalArgumentException.class, () -> service.subscribe(
-                    "temperature_air",
-                    Duration.ofMillis(250),
-                    new fr.alescis.aelia.ports.WeatherUpdateListener() {
-                        @Override
-                        public void onUpdate(java.util.UUID subscriptionId, fr.alescis.aelia.model.MetricValue value) {
-                            throw new UnsupportedOperationException("The listener must not be invoked by invalid subscriptions.");
-                        }
-
-                        @Override
-                        public void onError(java.util.UUID subscriptionId, Throwable error) {
-                            throw new UnsupportedOperationException("The listener must not be invoked by invalid subscriptions.");
-                        }
-                    }
+                    "air_temperature",
+                    Duration.ofMillis(500),
+                    new NoopWeatherUpdateListener()
             ));
         }
     }
 
     @Test
-    void catalogAndLimitsAreExposed() {
+    void currentValueRejectsUnsupportedMetrics() {
         try (WeatherService service = new WeatherService(new SimulatedWeatherDataProvider())) {
-            assertFalse(service.supportedMetrics().isEmpty());
-            assertFalse(service.limits().isEmpty());
-            assertTrue(service.findMetric("temperature_air").isPresent());
+            assertThrows(IllegalArgumentException.class, () -> service.currentValue("unknown_metric"));
+        }
+    }
+
+    @Test
+    void currentValueAcceptsSupportedMetrics() {
+        try (WeatherService service = new WeatherService(new SimulatedWeatherDataProvider())) {
+            assertDoesNotThrow(() -> service.currentValue("wind_speed"));
+        }
+    }
+
+    private static final class NoopWeatherUpdateListener implements WeatherUpdateListener {
+        @Override
+        public void onUpdate(UUID subscriptionId, MetricValue value) {
+        }
+
+        @Override
+        public void onError(UUID subscriptionId, Throwable error) {
         }
     }
 }

@@ -15,15 +15,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-OLD_OWNER = "alescis-wuin"
-OLD_REPO = "Aeliea"
-OLD_DISPLAY_NAME = "Aelia"
-OLD_GROUP_ID = "fr.alescis"
-OLD_BASE_PACKAGE = "fr.alescis.aelia"
-OLD_BASE_PACKAGE_PATH = OLD_BASE_PACKAGE.replace(".", "/")
-OLD_DESCRIPTION = "Aelia is a Weather utility application"
+CURRENT_OWNER = "alescis-wuin"
+CURRENT_REPO = "Aelia"
+CURRENT_ARTIFACT_ID = "aelia"
+CURRENT_DISPLAY_NAME = "Aelia"
+CURRENT_GROUP_ID = "fr.alescis"
+CURRENT_BASE_PACKAGE = "fr.alescis.aelia"
+CURRENT_DESCRIPTION = "Accessible JavaFX weather utility with a simulated data provider."
 
-TOPICS = ["java", "javafx", "maven", "weather", "mvc", "atlantafx", "desktop-app"]
+TOPICS = ["java", "javafx", "maven", "weather", "mvc", "atlantafx", "desktop-app", "accessibility"]
 TEXT_EXTENSIONS = {
     ".java", ".xml", ".md", ".txt", ".yml", ".yaml", ".css", ".properties", ".sh", ".py",
     ".gitignore", ".gitattributes", ".editorconfig", "", ".mf"
@@ -35,6 +35,7 @@ SKIPPED_DIRS = {".git", "target", "build", "out", "dist", ".idea", ".vscode"}
 class ProjectConfig:
     owner: str
     repo: str
+    artifact_id: str
     display_name: str
     group_id: str
     base_package: str
@@ -86,7 +87,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Configure Maven metadata and bootstrap Git/GitHub.")
     parser.add_argument("--non-interactive", action="store_true", help="Use provided flags and defaults without prompts.")
     parser.add_argument("--owner", help="GitHub owner or organization.")
-    parser.add_argument("--repo", help="Repository and Maven artifact name.")
+    parser.add_argument("--repo", help="GitHub repository name.")
+    parser.add_argument("--artifact-id", help="Maven artifactId.")
     parser.add_argument("--display-name", help="Human-readable project name.")
     parser.add_argument("--group-id", help="Maven groupId.")
     parser.add_argument("--base-package", help="Base Java package.")
@@ -100,18 +102,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def collect_config(args: argparse.Namespace) -> ProjectConfig:
-    owner_default = args.owner or detect_github_owner() or OLD_OWNER
-    repo_default = args.repo or OLD_REPO
+    owner_default = args.owner or detect_github_owner() or CURRENT_OWNER
+    repo_default = args.repo or CURRENT_REPO
+    artifact_default = args.artifact_id or normalize_artifact_id(repo_default)
     display_default = args.display_name or title_from_repo(repo_default)
-    group_default = args.group_id or f"io.github.{normalize_package_segment(owner_default)}"
-    package_default = args.base_package or f"{group_default}.{normalize_package_segment(repo_default)}"
-    description_default = args.description or OLD_DESCRIPTION
+    group_default = args.group_id or CURRENT_GROUP_ID
+    package_default = args.base_package or CURRENT_BASE_PACKAGE
+    description_default = args.description or CURRENT_DESCRIPTION
     visibility_default = args.visibility or "private"
 
     if args.non_interactive:
         config = ProjectConfig(
             owner=owner_default,
             repo=repo_default,
+            artifact_id=artifact_default,
             display_name=display_default,
             group_id=group_default,
             base_package=package_default,
@@ -126,6 +130,7 @@ def collect_config(args: argparse.Namespace) -> ProjectConfig:
         config = ProjectConfig(
             owner=prompt("GitHub owner or organization", owner_default),
             repo=prompt("Repository name", repo_default),
+            artifact_id=prompt("Maven artifactId", artifact_default),
             display_name=prompt("Project display name", display_default),
             group_id=prompt("Maven groupId", group_default),
             base_package=prompt("Base Java package", package_default),
@@ -147,6 +152,7 @@ def print_config(config: ProjectConfig) -> None:
     print("Resolved project configuration:")
     print(f"  owner:            {config.owner}")
     print(f"  repository:       {config.repo}")
+    print(f"  artifactId:       {config.artifact_id}")
     print(f"  display name:     {config.display_name}")
     print(f"  groupId:          {config.group_id}")
     print(f"  base package:     {config.base_package}")
@@ -158,33 +164,47 @@ def print_config(config: ProjectConfig) -> None:
 
 def customize_project(project_root: Path, config: ProjectConfig) -> None:
     replacements = [
-        ("https://github.com/alescis-wuin/Aeliea", f"https://github.com/{config.owner}/{config.repo}"),
-        ("git@github.com:alescis-wuin/Aeliea.git", f"git@github.com:{config.owner}/{config.repo}.git"),
-        (OLD_BASE_PACKAGE_PATH, config.base_package.replace(".", "/")),
-        (OLD_BASE_PACKAGE, config.base_package),
-        (OLD_GROUP_ID, config.group_id),
-        (OLD_DISPLAY_NAME, config.display_name),
-        (OLD_DESCRIPTION, config.description),
-        (OLD_REPO, config.repo),
-        (OLD_OWNER, config.owner),
+        (f"https://github.com/{CURRENT_OWNER}/{CURRENT_REPO}", f"https://github.com/{config.owner}/{config.repo}"),
+        (f"git@github.com:{CURRENT_OWNER}/{CURRENT_REPO}.git", f"git@github.com:{config.owner}/{config.repo}.git"),
+        (CURRENT_BASE_PACKAGE.replace(".", "/"), config.base_package.replace(".", "/")),
+        (CURRENT_BASE_PACKAGE, config.base_package),
+        (CURRENT_GROUP_ID, config.group_id),
+        (CURRENT_DESCRIPTION, config.description),
+        (CURRENT_OWNER, config.owner),
     ]
 
-    move_package_directories(project_root, config.base_package)
+    move_package_directories(project_root, CURRENT_BASE_PACKAGE, config.base_package)
     for path in iter_text_files(project_root):
         content = path.read_text(encoding="utf-8")
         updated = content
         for old, new in replacements:
             updated = updated.replace(old, new)
+        updated = replace_artifact_and_display_name(path, updated, config)
         if updated != content:
             path.write_text(updated, encoding="utf-8")
             print(f"updated {path.relative_to(project_root)}")
 
 
-def move_package_directories(project_root: Path, base_package: str) -> None:
-    new_package_path = base_package.replace(".", "/")
+def replace_artifact_and_display_name(path: Path, content: str, config: ProjectConfig) -> str:
+    updated = content
+    if path.name == "pom.xml":
+        updated = updated.replace(f"<artifactId>{CURRENT_ARTIFACT_ID}</artifactId>", f"<artifactId>{config.artifact_id}</artifactId>")
+        updated = updated.replace(f"<name>{CURRENT_DISPLAY_NAME}</name>", f"<name>{config.display_name}</name>")
+    if path.name == "init_project.py":
+        updated = updated.replace(f'CURRENT_REPO = "{CURRENT_REPO}"', f'CURRENT_REPO = "{config.repo}"')
+        updated = updated.replace(f'CURRENT_ARTIFACT_ID = "{CURRENT_ARTIFACT_ID}"', f'CURRENT_ARTIFACT_ID = "{config.artifact_id}"')
+        updated = updated.replace(f'CURRENT_DISPLAY_NAME = "{CURRENT_DISPLAY_NAME}"', f'CURRENT_DISPLAY_NAME = "{config.display_name}"')
+    if path.suffix in {".md", ".xml", ".yml", ".yaml"} or path.name == "README.md":
+        updated = re.sub(rf"\b{re.escape(CURRENT_DISPLAY_NAME)}\b", config.display_name, updated)
+    return updated
+
+
+def move_package_directories(project_root: Path, old_package: str, new_package: str) -> None:
+    old_path = old_package.replace(".", "/")
+    new_path = new_package.replace(".", "/")
     for source_root in ("src/main/java", "src/test/java", "src/main/resources"):
-        old_dir = project_root / source_root / OLD_BASE_PACKAGE_PATH
-        new_dir = project_root / source_root / new_package_path
+        old_dir = project_root / source_root / old_path
+        new_dir = project_root / source_root / new_path
         if not old_dir.exists() or old_dir == new_dir:
             continue
         if new_dir.exists():
@@ -192,7 +212,7 @@ def move_package_directories(project_root: Path, base_package: str) -> None:
         new_dir.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(old_dir), str(new_dir))
         prune_empty_parents(old_dir.parent, project_root / source_root)
-        print(f"moved {source_root}/{OLD_BASE_PACKAGE_PATH} -> {source_root}/{new_package_path}")
+        print(f"moved {source_root}/{old_path} -> {source_root}/{new_path}")
 
 
 def prune_empty_parents(path: Path, stop: Path) -> None:
@@ -247,7 +267,6 @@ def initialize_github(project_root: Path, config: ProjectConfig) -> None:
     run(["git", "push", "-u", "origin", "main"], project_root)
     create_and_push_branch(project_root, "testing")
     create_and_push_branch(project_root, "develop")
-
     edit_repository_metadata(project_root, config)
 
     if config.protect_branches:
@@ -401,14 +420,16 @@ def validate_config(config: ProjectConfig) -> None:
         raise BootstrapError("GitHub owner contains unsupported characters.")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", config.repo):
         raise BootstrapError("Repository name contains unsupported characters.")
+    if not re.fullmatch(r"[a-z0-9_.-]+", config.artifact_id):
+        raise BootstrapError("Maven artifactId must use lowercase letters, digits, dots, underscores or hyphens.")
     if not is_valid_package(config.group_id):
         raise BootstrapError("Maven groupId must also be a valid Java-style package.")
     if not is_valid_package(config.base_package):
         raise BootstrapError("Base package is not a valid Java package.")
-    if not config.display_name.strip():
-        raise BootstrapError("Display name must not be blank.")
-    if not config.description.strip():
-        raise BootstrapError("Description must not be blank.")
+    if not config.display_name.strip() or '"' in config.display_name or "\n" in config.display_name:
+        raise BootstrapError("Display name must be non-blank and must not contain quotes or line breaks.")
+    if not config.description.strip() or "\n" in config.description:
+        raise BootstrapError("Description must be non-blank and must not contain line breaks.")
 
 
 def is_valid_package(value: str) -> bool:
@@ -416,16 +437,11 @@ def is_valid_package(value: str) -> bool:
     return re.fullmatch(identifier + r"(\." + identifier + r")+", value) is not None
 
 
-def normalize_package_segment(value: str) -> str:
+def normalize_artifact_id(value: str) -> str:
     value = value.lower()
-    value = re.sub(r"[-.]+", "", value)
-    value = re.sub(r"[^a-z0-9_]", "_", value)
-    value = re.sub(r"_+", "_", value).strip("_")
-    if not value:
-        value = "app"
-    if value[0].isdigit():
-        value = "app" + value
-    return value
+    value = re.sub(r"[^a-z0-9_.-]", "-", value)
+    value = re.sub(r"[-_.]+", "-", value).strip("-._")
+    return value or CURRENT_ARTIFACT_ID
 
 
 def title_from_repo(repo: str) -> str:
@@ -434,7 +450,7 @@ def title_from_repo(repo: str) -> str:
         if not part:
             continue
         words.append(part.upper() if part.lower() in {"api", "mvc", "ui", "ux"} else part.capitalize())
-    return " ".join(words) or OLD_DISPLAY_NAME
+    return " ".join(words) or CURRENT_DISPLAY_NAME
 
 
 if __name__ == "__main__":

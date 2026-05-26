@@ -1,23 +1,13 @@
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - main
-      - testing
-      - develop
   push:
-    branches:
-      - main
-      - testing
-      - develop
-
-permissions:
-  contents: read
+    branches: [ main, develop, testing ]
+  pull_request:
+    branches: [ main, develop, testing ]
 
 jobs:
-  maven-verify:
-    name: Maven verify
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,4 +19,4 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Verify
-        run: mvn -B verify
+        run: mvn --batch-mode verify

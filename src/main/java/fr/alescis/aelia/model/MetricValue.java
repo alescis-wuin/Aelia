@@ -1,39 +1,36 @@
 package fr.alescis.aelia.model;
 
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.OptionalDouble;
 
 /**
- * Current or streamed value for a metric.
+ * Immutable value returned by a weather data provider.
  */
 public record MetricValue(
         DataMetric metric,
         Instant timestamp,
         OptionalDouble numericValue,
-        String textValue,
-        double confidence
+        String textValue
 ) {
     public MetricValue {
-        Objects.requireNonNull(metric, "metric");
-        Objects.requireNonNull(timestamp, "timestamp");
-        Objects.requireNonNull(numericValue, "numericValue");
-        Objects.requireNonNull(textValue, "textValue");
-        if (textValue.isBlank()) {
-            throw new IllegalArgumentException("Metric text value must not be blank.");
+        metric = Objects.requireNonNull(metric, "metric");
+        timestamp = Objects.requireNonNull(timestamp, "timestamp");
+        numericValue = Objects.requireNonNull(numericValue, "numericValue");
+        textValue = Objects.requireNonNull(textValue, "textValue").trim();
+        if (metric.kind() == DataKind.NUMERIC && numericValue.isEmpty()) {
+            throw new IllegalArgumentException("numeric metrics require a numeric value");
         }
-        if (!Double.isFinite(confidence) || confidence < 0.0 || confidence > 1.0) {
-            throw new IllegalArgumentException("Confidence must be between 0 and 1.");
+        if (metric.kind() != DataKind.NUMERIC && textValue.isBlank()) {
+            throw new IllegalArgumentException("text metrics require a text value");
         }
     }
 
-    public static MetricValue numeric(DataMetric metric, Instant timestamp, double value, double confidence) {
-        String formatted = String.format(Locale.ROOT, "%.1f %s", value, metric.unit()).trim();
-        return new MetricValue(metric, timestamp, OptionalDouble.of(value), formatted, confidence);
+    public static MetricValue numeric(DataMetric metric, Instant timestamp, double value) {
+        return new MetricValue(metric, timestamp, OptionalDouble.of(value), "");
     }
 
-    public static MetricValue text(DataMetric metric, Instant timestamp, String value, double confidence) {
-        return new MetricValue(metric, timestamp, OptionalDouble.empty(), value, confidence);
+    public static MetricValue text(DataMetric metric, Instant timestamp, String value) {
+        return new MetricValue(metric, timestamp, OptionalDouble.empty(), value);
     }
 }

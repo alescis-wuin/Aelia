@@ -8,36 +8,32 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /**
- * Lightweight non-geospatial approximation for sunrise and sunset values.
+ * Deterministic local sun-cycle approximation for the simulated provider.
  */
 final class SunCycleState {
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT);
-
+    private final Map<String, DataMetric> metricsById;
     private final ZoneId zoneId;
 
-    SunCycleState(ZoneId zoneId) {
+    SunCycleState(Map<String, DataMetric> metricsById, ZoneId zoneId) {
+        this.metricsById = Map.copyOf(metricsById);
         this.zoneId = Objects.requireNonNull(zoneId, "zoneId");
     }
 
-    MetricValue sunrise(Instant now) {
-        return timeValue(SimulationCatalog.sunriseMetric(), now, true);
-    }
-
-    MetricValue sunset(Instant now) {
-        return timeValue(SimulationCatalog.sunsetMetric(), now, false);
-    }
-
-    private MetricValue timeValue(DataMetric metric, Instant now, boolean sunrise) {
+    MetricValue sample(String metricId, Instant now) {
+        DataMetric metric = Objects.requireNonNull(metricsById.get(metricId), "metric");
         LocalDate date = LocalDate.ofInstant(now, zoneId);
-        double seasonal = Math.sin(((date.getDayOfYear() - 80.0) / 365.25) * Math.PI * 2.0);
-        int shiftMinutes = (int) Math.round(seasonal * 105.0);
-        LocalTime base = sunrise ? LocalTime.of(7, 20) : LocalTime.of(18, 35);
-        LocalTime value = sunrise ? base.minusMinutes(shiftMinutes) : base.plusMinutes(shiftMinutes);
-        return MetricValue.text(metric, now, value.format(FORMATTER), 0.86);
+        int day = date.getDayOfYear();
+        double seasonal = Math.sin(((day - 80.0d) / 365.0d) * Math.PI * 2.0d);
+        int sunrise = (int) Math.round(390.0d - seasonal * 95.0d);
+        int sunset = (int) Math.round(1110.0d + seasonal * 115.0d);
+        int minuteOfDay = "sunrise".equals(metricId) ? sunrise : sunset;
+        LocalTime time = LocalTime.of(minuteOfDay / 60, minuteOfDay % 60);
+        return MetricValue.text(metric, now, FORMATTER.format(time));
     }
 }

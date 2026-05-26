@@ -15,12 +15,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Application service that centralizes validation and provider access.
+ * Application service that validates UI requests before delegating to the provider port.
  */
 public final class WeatherService implements AutoCloseable {
-
-    private static final Duration MINIMUM_INTERVAL = Duration.ofSeconds(1);
-    private static final Duration MAXIMUM_INTERVAL = Duration.ofHours(24);
+    public static final Duration MINIMUM_INTERVAL = Duration.ofSeconds(1);
+    public static final Duration MAXIMUM_INTERVAL = Duration.ofHours(1);
 
     private final WeatherDataProvider provider;
 
@@ -36,13 +35,6 @@ public final class WeatherService implements AutoCloseable {
         return provider.supportedMetrics();
     }
 
-    public Optional<DataMetric> findMetric(String metricId) {
-        Objects.requireNonNull(metricId, "metricId");
-        return supportedMetrics().stream()
-                .filter(metric -> metric.id().equals(metricId))
-                .findFirst();
-    }
-
     public List<ApiLimit> limits() {
         return provider.limits();
     }
@@ -54,11 +46,8 @@ public final class WeatherService implements AutoCloseable {
 
     public UUID subscribe(String metricId, Duration interval, WeatherUpdateListener listener) {
         requireMetric(metricId);
-        Objects.requireNonNull(interval, "interval");
+        validateInterval(interval);
         Objects.requireNonNull(listener, "listener");
-        if (interval.compareTo(MINIMUM_INTERVAL) < 0 || interval.compareTo(MAXIMUM_INTERVAL) > 0) {
-            throw new IllegalArgumentException("Interval must be between 1 second and 24 hours.");
-        }
         return provider.subscribe(metricId, interval, listener);
     }
 
@@ -66,8 +55,14 @@ public final class WeatherService implements AutoCloseable {
         provider.unsubscribe(Objects.requireNonNull(subscriptionId, "subscriptionId"));
     }
 
-    public List<SubscriptionSnapshot> activeSubscriptions() {
-        return provider.activeSubscriptions();
+    public List<SubscriptionSnapshot> subscriptions() {
+        return provider.subscriptions();
+    }
+
+    public Optional<DataMetric> findMetric(String metricId) {
+        return supportedMetrics().stream()
+                .filter(metric -> metric.id().equals(metricId))
+                .findFirst();
     }
 
     @Override
@@ -75,9 +70,23 @@ public final class WeatherService implements AutoCloseable {
         provider.close();
     }
 
+    private void validateInterval(Duration interval) {
+        Objects.requireNonNull(interval, "interval");
+        if (interval.compareTo(MINIMUM_INTERVAL) < 0) {
+            throw new IllegalArgumentException("interval must be at least " + MINIMUM_INTERVAL.toSeconds() + " second");
+        }
+        if (interval.compareTo(MAXIMUM_INTERVAL) > 0) {
+            throw new IllegalArgumentException("interval must not exceed " + MAXIMUM_INTERVAL.toHours() + " hour");
+        }
+    }
+
     private void requireMetric(String metricId) {
-        if (findMetric(metricId).isEmpty()) {
-            throw new IllegalArgumentException("Unsupported metric: " + metricId);
+        String normalized = Objects.requireNonNull(metricId, "metricId").trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("metricId must not be blank");
+        }
+        if (findMetric(normalized).isEmpty()) {
+            throw new IllegalArgumentException("unsupported metric: " + normalized);
         }
     }
 }

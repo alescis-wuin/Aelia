@@ -29,7 +29,7 @@ import javafx.util.StringConverter;
 /**
  * JavaFX view for the minimal weather utility dashboard.
  */
-public final class WeatherDashboardView {
+public final class WeatherDashboardView extends DashboardView {
 
     private final BorderPane root = new BorderPane();
     private final Label providerLabel = new Label("Provider");
@@ -259,7 +259,7 @@ public final class WeatherDashboardView {
         category.setPrefWidth(95);
 
         TableColumn<DataMetric, String> range = new TableColumn<>("Range");
-        range.setCellValueFactory(value -> new ReadOnlyStringWrapper(value.getValue().rangeText()));
+        range.setCellValueFactory(value -> new ReadOnlyStringWrapper(value.getValue().rangeLabel()));
         range.setPrefWidth(130);
 
         metricsTable.getColumns().setAll(name, category, range);
@@ -272,11 +272,11 @@ public final class WeatherDashboardView {
         name.setPrefWidth(145);
 
         TableColumn<ApiLimit, String> period = new TableColumn<>("Window");
-        period.setCellValueFactory(value -> new ReadOnlyStringWrapper(value.getValue().period().label()));
+        period.setCellValueFactory(value -> new ReadOnlyStringWrapper(value.getValue().period()));
         period.setPrefWidth(100);
 
         TableColumn<ApiLimit, String> value = new TableColumn<>("Value");
-        value.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue().formattedLimit() + " " + data.getValue().unit()));
+        value.setCellValueFactory(data -> new ReadOnlyStringWrapper(data.getValue() + " " + data.getValue()));
         value.setPrefWidth(150);
 
         limitsTable.getColumns().setAll(name, period, value);
@@ -289,7 +289,7 @@ public final class WeatherDashboardView {
         metric.setPrefWidth(180);
 
         TableColumn<SubscriptionViewItem, String> interval = new TableColumn<>("Interval");
-        interval.setCellValueFactory(value -> value.getValue().intervalProperty());
+        interval.setCellValueFactory(value -> value.getValue().intervalTextProperty());
         interval.setPrefWidth(80);
 
         TableColumn<SubscriptionViewItem, String> last = new TableColumn<>("Last value");
@@ -297,7 +297,7 @@ public final class WeatherDashboardView {
         last.setPrefWidth(130);
 
         TableColumn<SubscriptionViewItem, String> updated = new TableColumn<>("Updated");
-        updated.setCellValueFactory(value -> value.getValue().updatedAtProperty());
+        updated.setCellValueFactory(value -> value.getValue().lastUpdateProperty());
         updated.setPrefWidth(130);
 
         subscriptionTable.getColumns().setAll(metric, interval, last, updated);

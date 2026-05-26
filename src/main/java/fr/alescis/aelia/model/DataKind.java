@@ -1,9 +1,10 @@
 package fr.alescis.aelia.model;
 
 /**
- * Distinguishes measured numeric values from textual states.
+ * Describes the value representation used by a metric.
  */
 public enum DataKind {
     NUMERIC,
-    TEXT
+    TEXT,
+    TEMPORAL
 }

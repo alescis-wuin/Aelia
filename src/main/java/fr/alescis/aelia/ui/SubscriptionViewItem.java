@@ -1,52 +1,65 @@
 package fr.alescis.aelia.ui;
 
+import fr.alescis.aelia.model.DataMetric;
+import fr.alescis.aelia.model.MetricValue;
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 
 /**
- * JavaFX-friendly representation of an active subscription row.
+ * JavaFX table row model for an active subscription.
  */
 public final class SubscriptionViewItem {
-
     private final UUID id;
-    private final ReadOnlyStringWrapper metricName = new ReadOnlyStringWrapper();
-    private final ReadOnlyStringWrapper interval = new ReadOnlyStringWrapper();
-    private final ReadOnlyStringWrapper lastValue = new ReadOnlyStringWrapper("waiting");
-    private final ReadOnlyStringWrapper updatedAt = new ReadOnlyStringWrapper("not received");
+    private final DataMetric metric;
+    private final Duration interval;
+    private final ReadOnlyStringWrapper metricName;
+    private final ReadOnlyStringWrapper intervalText;
+    private final ReadOnlyStringWrapper lastValue;
+    private final ReadOnlyStringWrapper lastUpdate;
 
-    public SubscriptionViewItem(UUID id, String metricName, Duration interval) {
-        this.id = Objects.requireNonNull(id, "id");
-        this.metricName.set(Objects.requireNonNull(metricName, "metricName"));
-        this.interval.set(UiFormatters.duration(Objects.requireNonNull(interval, "interval")));
+    public SubscriptionViewItem(UUID id, DataMetric metric, Duration interval, MetricValue initialValue) {
+        this.id = id;
+        this.metric = metric;
+        this.interval = interval;
+        this.metricName = new ReadOnlyStringWrapper(metric.displayName());
+        this.intervalText = new ReadOnlyStringWrapper(UiFormatters.interval(interval));
+        this.lastValue = new ReadOnlyStringWrapper(UiFormatters.value(initialValue));
+        this.lastUpdate = new ReadOnlyStringWrapper(UiFormatters.timestamp(initialValue.timestamp()));
     }
 
     public UUID id() {
         return id;
     }
 
+    public DataMetric metric() {
+        return metric;
+    }
+
+    public Duration interval() {
+        return interval;
+    }
+
     public ReadOnlyStringProperty metricNameProperty() {
         return metricName.getReadOnlyProperty();
     }
 
-    public ReadOnlyStringProperty intervalProperty() {
-        return interval.getReadOnlyProperty();
+    public ReadOnlyStringProperty intervalTextProperty() {
+        return intervalText.getReadOnlyProperty();
     }
 
     public ReadOnlyStringProperty lastValueProperty() {
         return lastValue.getReadOnlyProperty();
     }
 
-    public ReadOnlyStringProperty updatedAtProperty() {
-        return updatedAt.getReadOnlyProperty();
+    public ReadOnlyStringProperty lastUpdateProperty() {
+        return lastUpdate.getReadOnlyProperty();
     }
 
-    public void update(String value, Instant timestamp) {
-        lastValue.set(Objects.requireNonNull(value, "value"));
-        updatedAt.set(UiFormatters.instant(Objects.requireNonNull(timestamp, "timestamp")));
+    public void update(MetricValue value) {
+        lastValue.set(UiFormatters.value(value));
+        lastUpdate.set(UiFormatters.timestamp(value.timestamp()));
     }
 }

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Port implemented by local simulators and future remote weather API adapters.
+ * Port implemented by local or remote weather data providers.
  */
 public interface WeatherDataProvider extends AutoCloseable {
     ProviderDescriptor descriptor();
@@ -26,7 +26,7 @@ public interface WeatherDataProvider extends AutoCloseable {
 
     void unsubscribe(UUID subscriptionId);
 
-    List<SubscriptionSnapshot> activeSubscriptions();
+    List<SubscriptionSnapshot> subscriptions();
 
     @Override
     void close();
