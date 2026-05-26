@@ -4,62 +4,50 @@ import fr.alescis.aelia.model.MetricValue;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.Random;
 
 /**
- * Smooth bounded state used for one numeric metric.
+ * Thread-safe random-walk state for a numeric metric.
  */
 final class MetricState {
-
     private final MetricProfile profile;
     private final Random random;
-    private double currentValue;
-    private double targetValue;
-    private double velocity;
     private Instant lastSample;
+    private double value;
 
-    MetricState(MetricProfile profile, Random random, Instant initialInstant) {
-        this.profile = Objects.requireNonNull(profile, "profile");
-        this.random = Objects.requireNonNull(random, "random");
-        this.lastSample = Objects.requireNonNull(initialInstant, "initialInstant");
-        this.currentValue = randomBetween(profile.initialMinimum(), profile.initialMaximum());
-        this.targetValue = randomBetween(profile.targetMinimum(), profile.targetMaximum());
-        this.velocity = 0.0;
+    MetricState(MetricProfile profile, long seed, Instant initialSample) {
+        this.profile = profile;
+        this.random = new Random(seed);
+        this.lastSample = initialSample;
+        this.value = profile.baseValue();
     }
 
     synchronized MetricValue sample(Instant now) {
-        Objects.requireNonNull(now, "now");
-        advance(now);
-        return MetricValue.numeric(profile.metric(), now, currentValue, 0.94);
-    }
-
-    private void advance(Instant now) {
-        double seconds = Math.max(0.0, Duration.between(lastSample, now).toMillis() / 1_000.0);
-        if (seconds <= 0.0) {
-            return;
+        double elapsedSeconds = elapsedSeconds(now);
+        if (elapsedSeconds > 0.0d) {
+            double target = targetValue(now);
+            double pull = (target - value) * Math.min(1.0d, profile.recovery() * elapsedSeconds);
+            double noise = random.nextGaussian() * profile.volatility() * Math.sqrt(elapsedSeconds);
+            value = clamp(value + pull + noise, profile.minimum(), profile.maximum());
+            lastSample = now;
         }
+        return MetricValue.numeric(profile.metric(), now, value);
+    }
 
-        if (random.nextDouble() < Math.min(0.35, seconds / 900.0)) {
-            targetValue = randomBetween(profile.targetMinimum(), profile.targetMaximum());
+    private double elapsedSeconds(Instant now) {
+        if (now.isBefore(lastSample)) {
+            return 0.0d;
         }
-
-        double range = profile.metric().maximum() - profile.metric().minimum();
-        double noise = random.nextGaussian() * range * profile.volatility() * Math.sqrt(seconds / 60.0);
-        double attraction = (targetValue - currentValue) * profile.attraction() * seconds;
-        velocity = (velocity * 0.82) + noise + attraction;
-
-        double maximumDelta = profile.maximumStepPerSecond() * seconds * Math.max(1.0, range / 10.0);
-        double delta = clamp(velocity, -maximumDelta, maximumDelta);
-        currentValue = clamp(currentValue + delta, profile.metric().minimum(), profile.metric().maximum());
-        lastSample = now;
+        return Duration.between(lastSample, now).toMillis() / 1000.0d;
     }
 
-    private double randomBetween(double minimum, double maximum) {
-        return minimum + random.nextDouble() * (maximum - minimum);
+    private double targetValue(Instant now) {
+        double period = profile.cycleDuration().toSeconds();
+        double phase = (now.getEpochSecond() % (long) period) / period;
+        return profile.baseValue() + Math.sin(phase * Math.PI * 2.0d) * profile.cycleAmplitude();
     }
 
-    private static double clamp(double value, double minimum, double maximum) {
-        return Math.max(minimum, Math.min(maximum, value));
+    private double clamp(double candidate, double minimum, double maximum) {
+        return Math.max(minimum, Math.min(maximum, candidate));
     }
 }

@@ -5,164 +5,221 @@ import fr.alescis.aelia.model.MetricValue;
 import fr.alescis.aelia.model.ProviderDescriptor;
 import fr.alescis.aelia.ports.WeatherUpdateListener;
 import fr.alescis.aelia.service.WeatherService;
+import fr.alescis.aelia.ui.DashboardView;
 import fr.alescis.aelia.ui.SubscriptionViewItem;
 import fr.alescis.aelia.ui.UiFormatters;
-import fr.alescis.aelia.ui.WeatherDashboardView;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.FilteredList;
 
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Controller that wires JavaFX events to the weather service.
+ * Coordinates user interactions between the JavaFX view and the application service.
  */
-public final class DashboardController {
+public final class DashboardController implements AutoCloseable {
+    private static final int MAX_STATUS_LENGTH = 72;
+    private static final String CONDITION_METRIC_ID = "condition";
+    private static final List<String> GLANCE_METRIC_IDS = List.of(
+            "humidity",
+            "wind_speed",
+            "uv_index",
+            "european_aqi"
+    );
 
-    private static final int MAX_FEED_ITEMS = 120;
-
-    private final WeatherService weatherService;
-    private final WeatherDashboardView view;
+    private final WeatherService service;
+    private final DashboardView view;
     private final ObservableList<DataMetric> metrics = FXCollections.observableArrayList();
-    private final FilteredList<DataMetric> filteredMetrics = new FilteredList<>(metrics, metric -> true);
     private final ObservableList<SubscriptionViewItem> subscriptions = FXCollections.observableArrayList();
-    private final ObservableList<String> feed = FXCollections.observableArrayList();
     private final Map<UUID, SubscriptionViewItem> subscriptionItems = new ConcurrentHashMap<>();
 
-    public DashboardController(WeatherService weatherService, WeatherDashboardView view) {
-        this.weatherService = Objects.requireNonNull(weatherService, "weatherService");
+    public DashboardController(WeatherService service, DashboardView view) {
+        this.service = Objects.requireNonNull(service, "service");
         this.view = Objects.requireNonNull(view, "view");
     }
 
     public void initialize() {
         configureProviderLabels();
-        configureMetricData();
+        configureDataSources();
         configureActions();
         selectInitialMetric();
+        refreshGlanceValues();
+    }
+
+    @Override
+    public void close() {
+        service.close();
     }
 
     private void configureProviderLabels() {
-        ProviderDescriptor descriptor = weatherService.descriptor();
-        view.providerLabel().setText(descriptor.displayName() + " · " + descriptor.version());
-        view.accessLabel().setText(descriptor.accessModel());
-        view.statusLabel().setText("Ready");
+        ProviderDescriptor descriptor = service.descriptor();
+        String access = descriptor.networkAccess() ? "Remote" : "Local";
+        view.providerStatusLabel().setText(access + " · " + descriptor.name() + " " + descriptor.version());
+        view.lastStatusLabel().setText("Ready");
     }
 
-    private void configureMetricData() {
-        metrics.setAll(weatherService.supportedMetrics().stream()
+    private void configureDataSources() {
+        metrics.setAll(service.supportedMetrics().stream()
                 .sorted(Comparator.comparing((DataMetric metric) -> metric.category().label())
                         .thenComparing(DataMetric::displayName))
                 .toList());
 
-        view.metricList().setItems(filteredMetrics);
+        view.metricSelector().setItems(metrics);
         view.metricsTable().setItems(metrics);
-        view.limitsTable().setItems(FXCollections.observableArrayList(weatherService.limits()));
-        view.subscriptionMetricBox().setItems(metrics);
+        view.limitsTable().setItems(FXCollections.observableArrayList(service.limits()));
         view.subscriptionTable().setItems(subscriptions);
-        view.updateFeed().setItems(feed);
+        view.createGlanceTiles(glanceMetrics());
+    }
 
-        view.searchField().textProperty().addListener((observable, oldValue, newValue) -> applyMetricFilter(newValue));
-        view.metricList().getSelectionModel().selectedItemProperty().addListener((observable, oldValue, metric) -> {
+    private List<DataMetric> glanceMetrics() {
+        return GLANCE_METRIC_IDS.stream()
+                .map(service::findMetric)
+                .flatMap(java.util.Optional::stream)
+                .toList();
+    }
+
+    private void configureActions() {
+        view.readNowButton().setOnAction(event -> refreshSelectedMetric());
+        view.subscribeButton().setOnAction(event -> subscribe());
+        view.unsubscribeButton().setOnAction(event -> unsubscribeSelectedStream());
+        view.metricSelector().getSelectionModel().selectedItemProperty().addListener((observable, previous, metric) -> {
             if (metric != null) {
-                view.subscriptionMetricBox().getSelectionModel().select(metric);
-                refreshCurrentValue(metric);
+                refreshMetric(metric);
+            }
+        });
+        view.readNowButton().disableProperty().bind(view.metricSelector().valueProperty().isNull());
+        view.subscribeButton().disableProperty().bind(view.metricSelector().valueProperty().isNull());
+        view.unsubscribeButton().disableProperty().bind(
+                view.subscriptionTable().getSelectionModel().selectedItemProperty().isNull()
+        );
+    }
+
+    private void selectInitialMetric() {
+        service.findMetric("air_temperature")
+                .ifPresentOrElse(
+                        metric -> view.metricSelector().getSelectionModel().select(metric),
+                        () -> {
+                            if (!metrics.isEmpty()) {
+                                view.metricSelector().getSelectionModel().selectFirst();
+                            }
+                        }
+                );
+    }
+
+    private void refreshGlanceValues() {
+        refreshConditionBadge();
+        for (DataMetric metric : glanceMetrics()) {
+            try {
+                MetricValue value = service.currentValue(metric.id());
+                view.updateGlanceTile(value);
+            } catch (RuntimeException exception) {
+                setStatus("Glance unavailable: " + exception.getMessage());
+            }
+        }
+    }
+
+    private void refreshConditionBadge() {
+        service.findMetric(CONDITION_METRIC_ID).ifPresent(metric -> {
+            try {
+                MetricValue value = service.currentValue(metric.id());
+                view.conditionBadge().setText("Condition · " + UiFormatters.value(value));
+            } catch (RuntimeException exception) {
+                setStatus("Condition unavailable: " + exception.getMessage());
             }
         });
     }
 
-    private void configureActions() {
-        view.refreshButton().setOnAction(event -> selectedMetric().ifPresent(this::refreshCurrentValue));
-        view.subscribeButton().setOnAction(event -> subscribe());
-        view.unsubscribeButton().setOnAction(event -> unsubscribeSelected());
+    private void refreshSelectedMetric() {
+        DataMetric metric = view.metricSelector().getSelectionModel().getSelectedItem();
+        if (metric == null) {
+            setStatus("Select a metric first");
+            return;
+        }
+        refreshMetric(metric);
     }
 
-    private void selectInitialMetric() {
-        if (!metrics.isEmpty()) {
-            view.metricList().getSelectionModel().selectFirst();
-            view.subscriptionMetricBox().getSelectionModel().selectFirst();
+    private void refreshMetric(DataMetric metric) {
+        try {
+            MetricValue value = service.currentValue(metric.id());
+            updateHero(value);
+            view.updateGlanceTile(value);
+            setStatus("Current value refreshed");
+        } catch (RuntimeException exception) {
+            setStatus("Refresh failed: " + exception.getMessage());
         }
     }
 
-    private java.util.Optional<DataMetric> selectedMetric() {
-        return java.util.Optional.ofNullable(view.metricList().getSelectionModel().getSelectedItem());
-    }
-
-    private void applyMetricFilter(String rawQuery) {
-        String query = rawQuery == null ? "" : rawQuery.strip().toLowerCase(Locale.ROOT);
-        filteredMetrics.setPredicate(metric -> query.isBlank()
-                || metric.displayName().toLowerCase(Locale.ROOT).contains(query)
-                || metric.id().toLowerCase(Locale.ROOT).contains(query)
-                || metric.category().label().toLowerCase(Locale.ROOT).contains(query));
-    }
-
-    private void refreshCurrentValue(DataMetric metric) {
-        try {
-            MetricValue value = weatherService.currentValue(metric.id());
-            view.currentMetricLabel().setText(metric.displayName());
-            view.currentValueLabel().setText(value.textValue());
-            view.currentDescriptionLabel().setText(metric.description());
-            view.currentTimestampLabel().setText("Updated " + UiFormatters.instant(value.timestamp()));
-            view.statusLabel().setText("Current value refreshed");
-        } catch (RuntimeException exception) {
-            view.statusLabel().setText("Refresh failed: " + exception.getMessage());
+    private void updateHero(MetricValue value) {
+        view.heroMetricLabel().setText(value.metric().displayName());
+        view.heroValueLabel().setText(UiFormatters.value(value));
+        view.heroDescriptionLabel().setText(value.metric().description());
+        view.heroTimestampLabel().setText("Updated " + UiFormatters.timestamp(value.timestamp()));
+        view.heroValueLabel().setAccessibleText(value.metric().displayName() + ": " + UiFormatters.value(value));
+        if (CONDITION_METRIC_ID.equals(value.metric().id())) {
+            view.conditionBadge().setText("Condition · " + UiFormatters.value(value));
         }
     }
 
     private void subscribe() {
-        DataMetric metric = view.subscriptionMetricBox().getSelectionModel().getSelectedItem();
+        DataMetric metric = view.metricSelector().getSelectionModel().getSelectedItem();
         if (metric == null) {
-            view.statusLabel().setText("Select a metric before subscribing");
+            setStatus("Select a metric first");
             return;
         }
 
-        int intervalSeconds = view.intervalSecondsSpinner().getValue();
-        Duration interval = Duration.ofSeconds(intervalSeconds);
-        WeatherUpdateListener listener = new UiWeatherUpdateListener();
+        Duration interval = Duration.ofSeconds(view.intervalSpinner().getValue());
         try {
-            UUID subscriptionId = weatherService.subscribe(metric.id(), interval, listener);
-            SubscriptionViewItem item = new SubscriptionViewItem(subscriptionId, metric.displayName(), interval);
+            MetricValue initialValue = service.currentValue(metric.id());
+            UUID subscriptionId = service.subscribe(metric.id(), interval, new UiWeatherUpdateListener());
+            SubscriptionViewItem item = new SubscriptionViewItem(subscriptionId, metric, interval, initialValue);
             subscriptionItems.put(subscriptionId, item);
             subscriptions.add(item);
-            view.statusLabel().setText("Subscribed to " + metric.displayName());
+            updateHero(initialValue);
+            view.updateGlanceTile(initialValue);
+            setStatus("Stream started: " + metric.displayName());
         } catch (RuntimeException exception) {
-            view.statusLabel().setText("Subscription failed: " + exception.getMessage());
+            setStatus("Stream failed: " + exception.getMessage());
         }
     }
 
-    private void unsubscribeSelected() {
+    private void unsubscribeSelectedStream() {
         SubscriptionViewItem selected = view.subscriptionTable().getSelectionModel().getSelectedItem();
         if (selected == null) {
-            view.statusLabel().setText("Select a stream to unsubscribe");
+            setStatus("Select a stream first");
             return;
         }
-        weatherService.unsubscribe(selected.id());
-        subscriptionItems.remove(selected.id());
+        service.unsubscribe(selected.id());
         subscriptions.remove(selected);
-        view.statusLabel().setText("Stream removed");
+        subscriptionItems.remove(selected.id());
+        setStatus("Stream stopped: " + selected.metric().displayName());
     }
 
     private void handleUpdate(UUID subscriptionId, MetricValue value) {
         SubscriptionViewItem item = subscriptionItems.get(subscriptionId);
         if (item != null) {
-            item.update(value.textValue(), value.timestamp());
+            item.update(value);
         }
-        feed.add(0, value.metric().displayName() + " = " + value.textValue() + " · " + UiFormatters.instant(value.timestamp()));
-        if (feed.size() > MAX_FEED_ITEMS) {
-            feed.remove(MAX_FEED_ITEMS, feed.size());
-        }
-        view.statusLabel().setText("Stream update received");
+        updateHero(value);
+        view.updateGlanceTile(value);
+        setStatus("Stream update: " + value.metric().displayName());
     }
 
-    private void handleError(UUID subscriptionId, Throwable error) {
-        feed.add(0, "Stream " + subscriptionId + " failed: " + error.getMessage());
-        view.statusLabel().setText("Stream error");
+    private void handleError(Throwable error) {
+        setStatus("Stream error: " + error.getMessage());
+    }
+
+    private void setStatus(String status) {
+        if (status.length() <= MAX_STATUS_LENGTH) {
+            view.lastStatusLabel().setText(status);
+        } else {
+            view.lastStatusLabel().setText(status.substring(0, MAX_STATUS_LENGTH - 1) + "…");
+        }
     }
 
     private final class UiWeatherUpdateListener implements WeatherUpdateListener {
@@ -173,7 +230,7 @@ public final class DashboardController {
 
         @Override
         public void onError(UUID subscriptionId, Throwable error) {
-            Platform.runLater(() -> handleError(subscriptionId, error));
+            Platform.runLater(() -> handleError(error));
         }
     }
 }

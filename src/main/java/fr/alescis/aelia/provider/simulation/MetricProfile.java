@@ -2,28 +2,36 @@ package fr.alescis.aelia.provider.simulation;
 
 import fr.alescis.aelia.model.DataMetric;
 
+import java.time.Duration;
+import java.util.Objects;
+
 /**
- * Simulation parameters attached to a numeric metric.
+ * Numeric simulation parameters used by one metric state.
  */
 record MetricProfile(
         DataMetric metric,
-        double initialMinimum,
-        double initialMaximum,
-        double targetMinimum,
-        double targetMaximum,
+        double baseValue,
+        double minimum,
+        double maximum,
         double volatility,
-        double attraction,
-        double maximumStepPerSecond
+        double recovery,
+        double cycleAmplitude,
+        Duration cycleDuration
 ) {
     MetricProfile {
-        if (initialMinimum > initialMaximum) {
-            throw new IllegalArgumentException("Initial bounds are invalid for " + metric.id());
+        metric = Objects.requireNonNull(metric, "metric");
+        cycleDuration = Objects.requireNonNull(cycleDuration, "cycleDuration");
+        if (minimum > maximum) {
+            throw new IllegalArgumentException("minimum must not be greater than maximum");
         }
-        if (targetMinimum > targetMaximum) {
-            throw new IllegalArgumentException("Target bounds are invalid for " + metric.id());
+        if (baseValue < minimum || baseValue > maximum) {
+            throw new IllegalArgumentException("baseValue must be inside the profile range");
         }
-        if (volatility < 0.0 || attraction < 0.0 || maximumStepPerSecond <= 0.0) {
-            throw new IllegalArgumentException("Simulation parameters must be positive for " + metric.id());
+        if (volatility < 0.0d || recovery < 0.0d || cycleAmplitude < 0.0d) {
+            throw new IllegalArgumentException("profile values must be positive");
+        }
+        if (cycleDuration.isNegative() || cycleDuration.isZero()) {
+            throw new IllegalArgumentException("cycleDuration must be positive");
         }
     }
 }

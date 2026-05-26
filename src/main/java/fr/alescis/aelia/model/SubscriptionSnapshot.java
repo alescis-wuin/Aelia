@@ -3,24 +3,35 @@ package fr.alescis.aelia.model;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Read-only subscription state exposed by a provider.
+ * Immutable state exposed for a provider subscription.
  */
 public record SubscriptionSnapshot(
         UUID id,
-        DataMetric metric,
+        String metricId,
         Duration interval,
-        Instant createdAt
+        Instant createdAt,
+        Optional<Instant> lastUpdateAt
 ) {
     public SubscriptionSnapshot {
-        Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(metric, "metric");
-        Objects.requireNonNull(interval, "interval");
-        Objects.requireNonNull(createdAt, "createdAt");
+        id = Objects.requireNonNull(id, "id");
+        metricId = requireText(metricId, "metricId");
+        interval = Objects.requireNonNull(interval, "interval");
+        createdAt = Objects.requireNonNull(createdAt, "createdAt");
+        lastUpdateAt = Objects.requireNonNull(lastUpdateAt, "lastUpdateAt");
         if (interval.isNegative() || interval.isZero()) {
-            throw new IllegalArgumentException("Subscription interval must be positive.");
+            throw new IllegalArgumentException("interval must be positive");
         }
+    }
+
+    private static String requireText(String value, String name) {
+        String normalized = Objects.requireNonNull(value, name).trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return normalized;
     }
 }

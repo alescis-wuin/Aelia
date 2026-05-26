@@ -5,23 +5,29 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Provider identity and integration details shown by the UI.
+ * User-facing provider metadata.
  */
 public record ProviderDescriptor(
-        String id,
-        String displayName,
+        String name,
         String version,
-        String accessModel,
+        String summary,
+        boolean networkAccess,
+        String accessPolicy,
         Optional<URI> documentationUri
 ) {
     public ProviderDescriptor {
-        Objects.requireNonNull(id, "id");
-        Objects.requireNonNull(displayName, "displayName");
-        Objects.requireNonNull(version, "version");
-        Objects.requireNonNull(accessModel, "accessModel");
-        Objects.requireNonNull(documentationUri, "documentationUri");
-        if (id.isBlank() || displayName.isBlank() || version.isBlank() || accessModel.isBlank()) {
-            throw new IllegalArgumentException("Provider descriptor fields must not be blank.");
+        name = requireText(name, "name");
+        version = requireText(version, "version");
+        summary = requireText(summary, "summary");
+        accessPolicy = requireText(accessPolicy, "accessPolicy");
+        documentationUri = Objects.requireNonNull(documentationUri, "documentationUri");
+    }
+
+    private static String requireText(String value, String name) {
+        String normalized = Objects.requireNonNull(value, name).trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(name + " must not be blank");
         }
+        return normalized;
     }
 }

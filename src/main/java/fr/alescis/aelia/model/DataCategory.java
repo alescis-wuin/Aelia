@@ -1,13 +1,14 @@
 package fr.alescis.aelia.model;
 
 /**
- * High-level metric groups displayed by the UI.
+ * High-level groups used to organize weather and environmental metrics.
  */
 public enum DataCategory {
     WEATHER("Weather"),
-    ASTRONOMY("Astronomy"),
-    AIR_QUALITY("Air quality"),
-    POLLEN("Pollen");
+    ATMOSPHERE("Atmosphere"),
+    SUN("Sun"),
+    AIR("Air"),
+    HEALTH("Health");
 
     private final String label;
 
