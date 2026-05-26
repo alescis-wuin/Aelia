@@ -11,19 +11,15 @@ import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 
-import java.util.LinkedHashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -39,11 +35,10 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private static final double CARD_HEIGHT = 822.0;
     private static final double MAP_WIDTH = 760.0;
     private static final double MAP_HEIGHT = 710.0;
-    private static final double TILE_SIZE = 256.0;
+    private static final double TILE_SIZE = MapTileCache.TILE_SIZE;
     private static final int MIN_ZOOM = 2;
     private static final int MAX_ZOOM = 18;
     private static final double MAX_MERCATOR_LATITUDE = 85.05112878;
-    private static final int MAX_CACHED_TILES = 384;
     private static final String TILE_URL_TEMPLATE = System.getProperty(
             "aelia.map.tileUrl",
             "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -51,13 +46,8 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
 
     private final Consumer<LocationWeather> addLocationHandler;
     private final NominatimReverseGeocoder reverseGeocoder = new NominatimReverseGeocoder();
+    private final MapTileCache tileCache = new MapTileCache(TILE_URL_TEMPLATE);
     private final AtomicInteger selectionVersion = new AtomicInteger();
-    private final Map<String, Image> tileCache = new LinkedHashMap<>(128, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Image> eldest) {
-            return size() > MAX_CACHED_TILES;
-        }
-    };
 
     private final Pane mapViewport = new Pane();
     private final Pane tileLayer = new Pane();
@@ -263,7 +253,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
                 int wrappedTileX = Math.floorMod(tileX, tileCount);
-                ImageView imageView = new ImageView(tileImage(zoom, wrappedTileX, tileY));
+                ImageView imageView = new ImageView(tileCache.placeholder());
                 imageView.setFitWidth(TILE_SIZE);
                 imageView.setFitHeight(TILE_SIZE);
                 imageView.setSmooth(false);
@@ -272,6 +262,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
                 imageView.setLayoutY(Math.round(tileY * TILE_SIZE - topLeftY));
                 imageView.setMouseTransparent(true);
                 tileLayer.getChildren().add(imageView);
+                tileCache.loadTile(zoom, wrappedTileX, tileY, imageView, status::setText);
             }
         }
         renderMarker();
@@ -297,24 +288,6 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         label.setLayoutY(Math.min(MAP_HEIGHT - 32.0, Math.max(8.0, point.y() - 8.0)));
         label.setPrefWidth(180.0);
         markerLayer.getChildren().addAll(halo, stem, marker, label);
-    }
-
-    private Image tileImage(int zoomValue, int tileX, int tileY) {
-        String key = zoomValue + "/" + tileX + "/" + tileY;
-        Image cached = tileCache.get(key);
-        if (cached != null) {
-            return cached;
-        }
-        Image image = new Image(tileUrl(zoomValue, tileX, tileY), TILE_SIZE, TILE_SIZE, false, false, true);
-        tileCache.put(key, image);
-        return image;
-    }
-
-    private String tileUrl(int zoomValue, int tileX, int tileY) {
-        return TILE_URL_TEMPLATE
-                .replace("{z}", Integer.toString(zoomValue))
-                .replace("{x}", Integer.toString(tileX))
-                .replace("{y}", Integer.toString(tileY));
     }
 
     private void changeZoom(int delta) {
@@ -392,6 +365,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
 
     @Override
     public void close() {
+        tileCache.close();
         reverseGeocoder.close();
     }
 
