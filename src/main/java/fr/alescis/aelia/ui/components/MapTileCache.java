@@ -64,6 +64,7 @@ final class MapTileCache implements AutoCloseable {
     private final HttpClient httpClient;
     private final PriorityBlockingQueue<TileWorkItem> workQueue = new PriorityBlockingQueue<>();
     private final java.util.Map<String, TileState> tileStates = new ConcurrentHashMap<>();
+    private final java.util.Map<String, Image> memoryImages = new ConcurrentHashMap<>();
     private final Set<String> activeTileKeys = ConcurrentHashMap.newKeySet();
     private final Image placeholder = placeholderImage();
     private final long requestIntervalMillis;
@@ -72,6 +73,7 @@ final class MapTileCache implements AutoCloseable {
     private final long maxImageBytes;
     private final int maxImageDimension;
     private final int minimumDistinctColors;
+    private final boolean rejectUniformTiles;
     private final boolean diagnosticsEnabled;
     private final AtomicLong workSequence = new AtomicLong();
     private final Object rateLimitLock = new Object();
@@ -88,6 +90,7 @@ final class MapTileCache implements AutoCloseable {
         this.maxImageBytes = configuredLong("aelia.map.maxImageBytes", DEFAULT_MAX_IMAGE_BYTES, 1L, 50L * 1024L * 1024L);
         this.maxImageDimension = (int) configuredLong("aelia.map.maxImageDimension", DEFAULT_MAX_IMAGE_DIMENSION, 1L, 16_384L);
         this.minimumDistinctColors = (int) configuredLong("aelia.map.minimumDistinctColors", DEFAULT_MINIMUM_DISTINCT_COLORS, 1L, 256L);
+        this.rejectUniformTiles = configuredBoolean("aelia.map.rejectUniformTiles", false);
         this.diagnosticsEnabled = configuredBoolean("aelia.map.diagnostics", true);
         this.tileExecutor = Executors.newSingleThreadExecutor(new TileThreadFactory());
         this.httpClient = HttpClient.newBuilder()
@@ -104,6 +107,7 @@ final class MapTileCache implements AutoCloseable {
                 + ", maxImageBytes=" + maxImageBytes
                 + ", maxImageDimension=" + maxImageDimension
                 + ", minimumDistinctColors=" + minimumDistinctColors
+                + ", rejectUniformTiles=" + rejectUniformTiles
                 + ", userAgent=" + USER_AGENT);
         inspectCacheRoot(true);
         tileExecutor.execute(this::runWorkerLoop);
@@ -128,6 +132,7 @@ final class MapTileCache implements AutoCloseable {
         activeTileKeys.addAll(keys);
         inspectCacheRoot(false);
         cleanupDormantTileStates();
+        cleanupMemoryImages();
     }
 
     String key(int zoom, int tileX, int tileY) {
@@ -146,8 +151,16 @@ final class MapTileCache implements AutoCloseable {
         state.addImageView(imageView);
         long version = state.markVisible(priority, statusHandler);
 
+        Image memoryImage = memoryImages.get(key);
+        if (memoryImage != null && Files.isRegularFile(cachedPath) && !expired(cachedPath)) {
+            imageView.setImage(memoryImage);
+            return;
+        }
+
         if (Files.isRegularFile(cachedPath)) {
-            imageView.setImage(fileImage(cachedPath, key, statusHandler));
+            Image image = fileImage(cachedPath, key, statusHandler);
+            memoryImages.put(key, image);
+            imageView.setImage(image);
             if (!expired(cachedPath)) {
                 return;
             }
@@ -236,6 +249,7 @@ final class MapTileCache implements AutoCloseable {
                 }
             } catch (TileLoadException exception) {
                 deleteInvalidCacheFile(item.cachedPath(), exception);
+                memoryImages.remove(item.key());
             }
         }
 
@@ -305,6 +319,7 @@ final class MapTileCache implements AutoCloseable {
             Path temporary = item.cachedPath().resolveSibling(item.cachedPath().getFileName() + ".tmp");
             Files.write(temporary, body);
             Files.move(temporary, item.cachedPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            memoryImages.remove(item.key());
             long fileSize = Files.size(item.cachedPath());
             logDebug("Tuile écrite dans le cache: key=" + item.key()
                     + ", cache=" + item.cachedPath()
@@ -500,15 +515,16 @@ final class MapTileCache implements AutoCloseable {
             );
         }
         if (distinctColors.size() < minimumDistinctColors) {
-            throw new TileLoadException(
-                    "Image de tuile trop uniforme. Voir la console.",
-                    "Image trop uniforme: key=" + key
-                            + ", url=" + uri
-                            + ", cache=" + cachePath
-                            + ", distinctColors=" + distinctColors.size()
-                            + ", minimumDistinctColors=" + minimumDistinctColors
-                            + ", nonTransparentPixels=" + nonTransparentPixels
-            );
+            String diagnosticMessage = "Image trop uniforme: key=" + key
+                    + ", url=" + uri
+                    + ", cache=" + cachePath
+                    + ", distinctColors=" + distinctColors.size()
+                    + ", minimumDistinctColors=" + minimumDistinctColors
+                    + ", nonTransparentPixels=" + nonTransparentPixels;
+            if (rejectUniformTiles) {
+                throw new TileLoadException("Image de tuile trop uniforme. Voir la console.", diagnosticMessage);
+            }
+            logWarning("Tuile uniforme acceptée: " + diagnosticMessage, null);
         }
 
         return new TileImageDiagnostics(
@@ -524,7 +540,7 @@ final class MapTileCache implements AutoCloseable {
     }
 
     private Image fileImage(Path path, String key, Consumer<String> statusHandler) {
-        Image image = new Image(path.toUri().toString(), TILE_SIZE, TILE_SIZE, false, false, true);
+        Image image = new Image(path.toUri().toString(), TILE_SIZE, TILE_SIZE, false, false, false);
         attachImageDiagnostics(image, key, path, statusHandler);
         return image;
     }
@@ -580,6 +596,7 @@ final class MapTileCache implements AutoCloseable {
         }
         Platform.runLater(() -> {
             Image image = fileImage(path, key, state.statusHandler);
+            memoryImages.put(key, image);
             state.imageViews.removeIf(reference -> {
                 ImageView imageView = reference.get();
                 if (imageView == null || imageView.getParent() == null) {
@@ -710,6 +727,13 @@ final class MapTileCache implements AutoCloseable {
         });
     }
 
+    private void cleanupMemoryImages() {
+        if (memoryImages.size() <= 256) {
+            return;
+        }
+        memoryImages.keySet().removeIf(key -> !activeTileKeys.contains(key));
+    }
+
     private static Path defaultCacheRoot() {
         String configured = System.getProperty("aelia.map.cache.dir");
         if (configured != null && !configured.isBlank()) {
@@ -818,6 +842,7 @@ final class MapTileCache implements AutoCloseable {
         activeTileKeys.clear();
         workQueue.clear();
         tileStates.clear();
+        memoryImages.clear();
         tileExecutor.shutdownNow();
     }
 
@@ -839,7 +864,16 @@ final class MapTileCache implements AutoCloseable {
         }
 
         private void addImageView(ImageView imageView) {
-            imageViews.add(new WeakReference<>(imageView));
+            boolean alreadyRegistered = false;
+            for (WeakReference<ImageView> reference : imageViews) {
+                if (reference.get() == imageView) {
+                    alreadyRegistered = true;
+                    break;
+                }
+            }
+            if (!alreadyRegistered) {
+                imageViews.add(new WeakReference<>(imageView));
+            }
             if (imageViews.size() > 24) {
                 imageViews.removeIf(reference -> {
                     ImageView existing = reference.get();
@@ -915,6 +949,7 @@ final class MapTileCache implements AutoCloseable {
     }
 
     private static final class TileLoadException extends Exception {
+        private static final long serialVersionUID = 1L;
         private final String userMessage;
 
         private TileLoadException(String userMessage, String diagnosticMessage) {
