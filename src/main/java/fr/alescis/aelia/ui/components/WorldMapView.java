@@ -52,7 +52,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private final Pane markerLayer = new Pane();
     private final Label selectedName = UiText.label("Cliquez sur la carte", "map-selection-title");
     private final Label selectedCoordinates = UiText.label("Aucune coordonnée sélectionnée", "map-coordinates");
-    private final Label status = UiText.label("La carte charge seulement les tuiles visibles, avec cache local et temporisation.", "map-status");
+    private final Label status = UiText.label(tileCache.diagnosticsSummary(), "map-status");
     private final Button addButton = new Button("Ajouter à mes zones");
 
     private ReverseGeocodeResult selectedResult;
@@ -218,13 +218,13 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         Label noteTitle = UiText.section("Notes");
         noteTitle.setLayoutX(18);
         noteTitle.setLayoutY(292);
-        Label note = UiText.label("La carte ne télécharge pas le monde entier : seules les tuiles visibles au zoom courant sont planifiées.", "map-note");
+        Label note = UiText.label("La carte ne télécharge pas le monde entier : seules les tuiles proches du viewport courant sont planifiées puis réordonnées.", "map-note");
         note.setLayoutX(18);
         note.setLayoutY(326);
         note.setPrefWidth(222);
         note.setWrapText(true);
 
-        Label policy = UiText.label("Cache disque ≥ 7 jours, User-Agent applicatif, requêtes espacées. Changez de fournisseur si tile.openstreetmap.org bloque encore temporairement.", "map-note-muted");
+        Label policy = UiText.label("Cache disque ≥ 7 jours, User-Agent applicatif, validation des images et diagnostics console via -Daelia.map.*.", "map-note-muted");
         policy.setLayoutX(18);
         policy.setLayoutY(438);
         policy.setPrefWidth(222);
@@ -243,6 +243,8 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         int tileCount = tileCount();
         double topLeftX = centerWorldX - MAP_WIDTH / 2.0;
         double topLeftY = centerWorldY - MAP_HEIGHT / 2.0;
+        double centerTileX = centerWorldX / TILE_SIZE;
+        double centerTileY = centerWorldY / TILE_SIZE;
         int startTileX = (int) Math.floor(topLeftX / TILE_SIZE);
         int endTileX = (int) Math.floor((topLeftX + MAP_WIDTH - 1.0) / TILE_SIZE);
         int startTileY = Math.max(0, (int) Math.floor(topLeftY / TILE_SIZE));
@@ -260,6 +262,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
                 int wrappedTileX = Math.floorMod(tileX, tileCount);
+                int priority = tilePriority(tileX, tileY, centerTileX, centerTileY);
                 ImageView imageView = new ImageView(tileCache.placeholder());
                 imageView.setFitWidth(TILE_SIZE);
                 imageView.setFitHeight(TILE_SIZE);
@@ -269,10 +272,16 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
                 imageView.setLayoutY(Math.round(tileY * TILE_SIZE - topLeftY));
                 imageView.setMouseTransparent(true);
                 tileLayer.getChildren().add(imageView);
-                tileCache.loadTile(zoom, wrappedTileX, tileY, imageView, status::setText);
+                tileCache.loadTile(zoom, wrappedTileX, tileY, priority, imageView, status::setText);
             }
         }
         renderMarker();
+    }
+
+    private int tilePriority(int tileX, int tileY, double centerTileX, double centerTileY) {
+        double tileCenterX = tileX + 0.5;
+        double tileCenterY = tileY + 0.5;
+        return (int) Math.round(Math.hypot(tileCenterX - centerTileX, tileCenterY - centerTileY) * 1_000.0);
     }
 
     private void renderMarker() {
@@ -306,7 +315,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         Point center = project(centerLatitude, centerLongitude, zoom);
         centerWorldX = center.x();
         centerWorldY = clampCenterWorldY(center.y());
-        status.setText("Zoom " + zoom + " · cliquez sur une zone.");
+        status.setText("Zoom " + zoom + " · tuiles réordonnées par proximité.");
         renderMap();
     }
 
