@@ -33,6 +33,10 @@ public final class AeliaApplication extends Application {
             "/fr/alescis/aelia/fonts/Hack-Regular.ttf",
             "/fr/alescis/aelia/fonts/Hack-Bold.ttf"
     );
+    private static final List<String> STYLESHEETS = List.of(
+            "/fr/alescis/aelia/styles/application.css",
+            "/fr/alescis/aelia/styles/provider.css"
+    );
 
     private volatile AeliaWeatherService service;
     private volatile String providerMode;
@@ -64,10 +68,7 @@ public final class AeliaApplication extends Application {
         ScaledDashboardShell shell = new ScaledDashboardShell(dashboardView);
 
         Scene scene = new Scene(shell, INITIAL_WIDTH, INITIAL_HEIGHT);
-        URL stylesheet = AeliaApplication.class.getResource("/fr/alescis/aelia/styles/application.css");
-        if (stylesheet != null) {
-            scene.getStylesheets().add(stylesheet.toExternalForm());
-        }
+        loadStylesheets(scene);
 
         stage.setTitle("Aelia");
         stage.setMinWidth(1180.0);
@@ -146,6 +147,15 @@ public final class AeliaApplication extends Application {
             URL fontResource = AeliaApplication.class.getResource(fontPath);
             if (fontResource != null) {
                 Font.loadFont(fontResource.toExternalForm(), 12.0);
+            }
+        }
+    }
+
+    private void loadStylesheets(Scene scene) {
+        for (String stylesheetPath : STYLESHEETS) {
+            URL stylesheet = AeliaApplication.class.getResource(stylesheetPath);
+            if (stylesheet != null) {
+                scene.getStylesheets().add(stylesheet.toExternalForm());
             }
         }
     }
