@@ -1,17 +1,25 @@
 package fr.alescis.aelia;
 
 import atlantafx.base.theme.PrimerDark;
-import fr.alescis.aelia.provider.simulation.SimulatedWeatherDashboardProvider;
+import fr.alescis.aelia.model.DashboardDataStatus;
+import fr.alescis.aelia.model.DashboardSnapshot;
+import fr.alescis.aelia.provider.ProviderDiagnostics;
+import fr.alescis.aelia.provider.WeatherDashboardProvider;
+import fr.alescis.aelia.provider.WeatherProviderFactory;
 import fr.alescis.aelia.service.AeliaWeatherService;
 import fr.alescis.aelia.ui.AeliaDashboardView;
+import fr.alescis.aelia.ui.DashboardRuntimeActions;
 import fr.alescis.aelia.ui.components.ScaledDashboardShell;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 import java.net.URL;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * JavaFX entry point for Aelia.
@@ -26,7 +34,10 @@ public final class AeliaApplication extends Application {
             "/fr/alescis/aelia/fonts/Hack-Bold.ttf"
     );
 
-    private AeliaWeatherService service;
+    private volatile AeliaWeatherService service;
+    private volatile String providerMode;
+    private AeliaDashboardView dashboardView;
+    private ExecutorService runtimeExecutor;
 
     public static void main(String[] args) {
         launch(args);
@@ -37,8 +48,19 @@ public final class AeliaApplication extends Application {
         Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
         loadOptionalLocalFonts();
 
-        service = new AeliaWeatherService(new SimulatedWeatherDashboardProvider());
-        AeliaDashboardView dashboardView = new AeliaDashboardView(service.currentSnapshot());
+        runtimeExecutor = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "aelia-runtime-provider");
+            thread.setDaemon(true);
+            return thread;
+        });
+
+        providerMode = WeatherProviderFactory.providerMode();
+        ProviderDiagnostics.info("Selected weather provider mode: " + providerMode + ".");
+        WeatherDashboardProvider provider = WeatherProviderFactory.createDashboardProvider(providerMode);
+        service = new AeliaWeatherService(provider);
+        DashboardSnapshot initialSnapshot = WeatherProviderFactory.initialSnapshot(provider, providerMode);
+
+        dashboardView = new AeliaDashboardView(initialSnapshot, new ApplicationRuntimeActions());
         ScaledDashboardShell shell = new ScaledDashboardShell(dashboardView);
 
         Scene scene = new Scene(shell, INITIAL_WIDTH, INITIAL_HEIGHT);
@@ -53,6 +75,10 @@ public final class AeliaApplication extends Application {
         stage.setScene(scene);
         stage.setOnCloseRequest(event -> closeService());
         stage.show();
+
+        if (WeatherProviderFactory.remoteRefreshEnabled(providerMode)) {
+            refreshProviderData();
+        }
     }
 
     @Override
@@ -60,10 +86,58 @@ public final class AeliaApplication extends Application {
         closeService();
     }
 
+    private void selectProviderMode(String mode) {
+        String normalizedMode = WeatherProviderFactory.normalizeMode(mode);
+        System.setProperty("aelia.weather.provider", normalizedMode);
+        ProviderDiagnostics.info("Switching weather provider mode to " + normalizedMode + ".");
+        runtimeExecutor.execute(() -> {
+            AeliaWeatherService previousService = service;
+            if (previousService != null) {
+                previousService.close();
+            }
+            WeatherDashboardProvider provider = WeatherProviderFactory.createDashboardProvider(normalizedMode);
+            AeliaWeatherService nextService = new AeliaWeatherService(provider);
+            DashboardSnapshot snapshot = WeatherProviderFactory.initialSnapshot(provider, normalizedMode);
+            service = nextService;
+            providerMode = normalizedMode;
+            Platform.runLater(() -> dashboardView.updateSnapshot(snapshot));
+            if (WeatherProviderFactory.remoteRefreshEnabled(normalizedMode)) {
+                refreshProviderData();
+            }
+        });
+    }
+
+    private void refreshProviderData() {
+        AeliaWeatherService activeService = service;
+        String activeMode = providerMode;
+        if (activeService == null || runtimeExecutor == null) {
+            return;
+        }
+        runtimeExecutor.execute(() -> {
+            try {
+                DashboardSnapshot snapshot = activeService.currentSnapshot();
+                Platform.runLater(() -> dashboardView.updateSnapshot(snapshot.withDataStatus(
+                        snapshot.dataStatus().withProviderMode(activeMode)
+                )));
+            } catch (RuntimeException exception) {
+                ProviderDiagnostics.warn("Remote weather refresh failed.", exception);
+                DashboardSnapshot fallback = WeatherProviderFactory.simulatedSnapshot(activeMode).withDataStatus(
+                        DashboardDataStatus.remoteFailureFallback(activeMode, "API météo", WeatherProviderFactory.compactFailure(exception))
+                );
+                Platform.runLater(() -> dashboardView.updateSnapshot(fallback));
+            }
+        });
+    }
+
     private void closeService() {
-        if (service != null) {
-            service.close();
+        AeliaWeatherService activeService = service;
+        if (activeService != null) {
+            activeService.close();
             service = null;
+        }
+        if (runtimeExecutor != null) {
+            runtimeExecutor.shutdownNow();
+            runtimeExecutor = null;
         }
     }
 
@@ -73,6 +147,18 @@ public final class AeliaApplication extends Application {
             if (fontResource != null) {
                 Font.loadFont(fontResource.toExternalForm(), 12.0);
             }
+        }
+    }
+
+    private final class ApplicationRuntimeActions implements DashboardRuntimeActions {
+        @Override
+        public void selectProviderMode(String mode) {
+            AeliaApplication.this.selectProviderMode(mode);
+        }
+
+        @Override
+        public void refreshProviderData() {
+            AeliaApplication.this.refreshProviderData();
         }
     }
 }
