@@ -5,11 +5,14 @@
 - Added a `WorldMapView` component for the `Carte` tab.
 - Rendered the map with native JavaFX `ImageView` raster tiles instead of `WebView` and Leaflet.
 - Added OpenStreetMap-compatible tile providers through `MapTileProvider`.
-- Added tile loading through `MapTileCache` with local disk cache, throttling, viewport-aware scheduling and priority by distance to the viewport center.
+- Added tile loading through `MapTileCache` with local disk cache, in-memory session cache, throttling, viewport-aware scheduling and priority by distance to the viewport center.
+- Retained already visible `ImageView` tile nodes during pan operations; visible tiles are repositioned instead of being removed and recreated.
+- Removed only tile nodes that are no longer visible in the current viewport.
 - Added delayed cancellation: tiles that were visible recently can still finish loading during short pan or zoom bursts.
 - Added detailed HTTP diagnostics: URL, status code, content type, response size, cache path, cache headers and elapsed time.
 - Added image diagnostics: file size, image dimensions, transparent pixel count, distinct color count, JavaFX `errorProperty` and JavaFX `exceptionProperty`.
-- Added validation for empty, oversized, unreadable, fully transparent or overly uniform tile images.
+- Added validation for empty, oversized, unreadable or fully transparent tile images.
+- Accepted uniform-but-valid tiles by default, because plain ocean tiles can legitimately contain a single color; strict rejection remains available with `aelia.map.rejectUniformTiles=true`.
 - Added cache inspection logs when the map is rendered: cache path existence, directory state and whether cached files are present.
 - Added clearer UI status messages for HTTP, network, cache and image validation failures.
 - Kept Nominatim reverse geocoding only for user-triggered map clicks, with coordinate fallback when reverse geocoding fails.
@@ -28,6 +31,7 @@ The map is configured with Java system properties:
 - `aelia.map.maxImageBytes`
 - `aelia.map.maxImageDimension`
 - `aelia.map.minimumDistinctColors`
+- `aelia.map.rejectUniformTiles`
 - `aelia.map.userAgent`
 - `aelia.map.tileUrl`
 - `aelia.map.tileProviderName`
