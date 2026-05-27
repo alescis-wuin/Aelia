@@ -30,7 +30,7 @@ mvn test
 4. Click **Ajouter à mes zones**.
 5. The zone is appended to the sidebar and selected.
 
-The map intentionally does not prefetch/offline-cache areas. It schedules visible tiles first, keeps recently visible tiles briefly eligible for loading, and stores valid tiles in a local disk cache.
+The map intentionally does not prefetch/offline-cache areas. It keeps visible tile nodes during panning, repositions already visible tiles, schedules newly visible tiles first, keeps recently visible tiles briefly eligible for loading, and stores valid tiles in local disk and in-memory session caches.
 
 ## Map diagnostics and runtime properties
 
@@ -48,8 +48,11 @@ Useful Java system properties:
 -Daelia.map.maxImageBytes=5242880
 -Daelia.map.maxImageDimension=1024
 -Daelia.map.minimumDistinctColors=2
+-Daelia.map.rejectUniformTiles=false
 -Daelia.map.userAgent="Aelia/0.4.1 (+https://github.com/alescis-wuin/Aelia; contact: your-contact)"
 ```
+
+Uniform-but-valid tiles, such as plain ocean tiles, are accepted by default and logged as warnings. Set `aelia.map.rejectUniformTiles=true` only when intentionally testing strict validation.
 
 Built-in tile providers: `osm`, `osm-france`, `osm-france-hot`, `opentopomap`.
 
