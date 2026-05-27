@@ -2,19 +2,53 @@
 
 Aelia is a Java 26, JavaFX, Maven and AtlantaFX desktop weather dashboard prototype.
 
-This branch adds a functional **Carte** tab backed by a native JavaFX raster tile view, OpenStreetMap-compatible tile providers and Nominatim reverse geocoding. The dashboard data remains simulated; selected map locations are added to the local sidebar list and can be selected immediately.
+This branch combines the native JavaFX **Carte** tab with restored weather provider modes: local simulation, automatic remote refresh and strict API-oriented execution. The primary remote provider is Open-Meteo, with optional keyed fallbacks for WeatherAPI.com, Visual Crossing, OpenWeather, Weatherbit and Pirate Weather.
 
 ## Requirements
 
 - Java 26.
 - Maven 3.9+.
-- Internet access for map tiles and reverse geocoding.
+- Internet access for map tiles, reverse geocoding and remote weather APIs.
 
 ## Run
 
 ```bash
 mvn javafx:run
 ```
+
+## Provider modes
+
+```bash
+mvn javafx:run -Daelia.weather.provider=auto
+mvn javafx:run -Daelia.weather.provider=api
+mvn javafx:run -Daelia.weather.provider=simulated
+```
+
+- `auto`: starts with the simulated snapshot, then refreshes with remote providers and falls back to simulation if every remote source fails.
+- `api`: loads remote providers first and displays a visible provider status if the remote chain fails.
+- `simulated`: uses only deterministic local data.
+
+The `Réglages` view exposes buttons for `auto`, `api`, `simulated` and remote refresh.
+
+## Remote weather configuration
+
+Open-Meteo is keyless for the public forecast and air-quality endpoints. The keyed fallbacks are used only when their key is present and their `AELIA_*_ENABLED` flag is enabled.
+
+```bash
+AELIA_WEATHER_PROVIDER=auto
+AELIA_OPENMETEO_LATITUDE=49.4431
+AELIA_OPENMETEO_LONGITUDE=1.0993
+AELIA_OPENMETEO_CITY=Rouen
+AELIA_OPENMETEO_COUNTRY=France
+AELIA_OPENMETEO_TIMEZONE=Europe/Paris
+AELIA_WEATHERAPI_API_KEY=
+AELIA_VISUALCROSSING_API_KEY=
+AELIA_OPENWEATHER_API_KEY=
+AELIA_WEATHERBIT_API_KEY=
+AELIA_PIRATEWEATHER_API_KEY=
+```
+
+Java system properties with the same logical names are also supported, for example `-Daelia.openmeteo.latitude=49.4431`.
 
 ## Test
 
