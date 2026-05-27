@@ -19,8 +19,11 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,6 +53,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private final Pane mapViewport = new Pane();
     private final Pane tileLayer = new Pane();
     private final Pane markerLayer = new Pane();
+    private final Map<String, ImageView> tileViews = new LinkedHashMap<>();
     private final Label selectedName = UiText.label("Cliquez sur la carte", "map-selection-title");
     private final Label selectedCoordinates = UiText.label("Aucune coordonnée sélectionnée", "map-coordinates");
     private final Label status = UiText.label(tileCache.diagnosticsSummary(), "map-status");
@@ -218,13 +222,13 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
         Label noteTitle = UiText.section("Notes");
         noteTitle.setLayoutX(18);
         noteTitle.setLayoutY(292);
-        Label note = UiText.label("La carte ne télécharge pas le monde entier : seules les tuiles proches du viewport courant sont planifiées puis réordonnées.", "map-note");
+        Label note = UiText.label("La carte conserve les tuiles visibles pendant le déplacement et ne recrée que les tuiles qui entrent dans le viewport.", "map-note");
         note.setLayoutX(18);
         note.setLayoutY(326);
         note.setPrefWidth(222);
         note.setWrapText(true);
 
-        Label policy = UiText.label("Cache disque ≥ 7 jours, User-Agent applicatif, validation des images et diagnostics console via -Daelia.map.*.", "map-note-muted");
+        Label policy = UiText.label("Cache disque ≥ 7 jours, cache mémoire de session, User-Agent applicatif et diagnostics console via -Daelia.map.*.", "map-note-muted");
         policy.setLayoutX(18);
         policy.setLayoutY(438);
         policy.setPrefWidth(222);
@@ -237,7 +241,6 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
     private void renderMap() {
         centerWorldX = wrapWorldX(centerWorldX);
         centerWorldY = clampCenterWorldY(centerWorldY);
-        tileLayer.getChildren().clear();
         markerLayer.getChildren().clear();
 
         int tileCount = tileCount();
@@ -258,24 +261,44 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
             }
         }
         tileCache.setActiveTiles(visibleTileKeys);
+        removeInvisibleTileViews(visibleTileKeys);
 
         for (int tileY = startTileY; tileY <= endTileY; tileY++) {
             for (int tileX = startTileX; tileX <= endTileX; tileX++) {
                 int wrappedTileX = Math.floorMod(tileX, tileCount);
+                String key = tileCache.key(zoom, wrappedTileX, tileY);
                 int priority = tilePriority(tileX, tileY, centerTileX, centerTileY);
-                ImageView imageView = new ImageView(tileCache.placeholder());
-                imageView.setFitWidth(TILE_SIZE);
-                imageView.setFitHeight(TILE_SIZE);
-                imageView.setSmooth(false);
-                imageView.setPreserveRatio(false);
+                ImageView imageView = tileViews.computeIfAbsent(key, ignored -> createTileImageView());
+                if (imageView.getParent() == null) {
+                    tileLayer.getChildren().add(imageView);
+                }
                 imageView.setLayoutX(Math.round(tileX * TILE_SIZE - topLeftX));
                 imageView.setLayoutY(Math.round(tileY * TILE_SIZE - topLeftY));
-                imageView.setMouseTransparent(true);
-                tileLayer.getChildren().add(imageView);
                 tileCache.loadTile(zoom, wrappedTileX, tileY, priority, imageView, status::setText);
             }
         }
         renderMarker();
+    }
+
+    private ImageView createTileImageView() {
+        ImageView imageView = new ImageView(tileCache.placeholder());
+        imageView.setFitWidth(TILE_SIZE);
+        imageView.setFitHeight(TILE_SIZE);
+        imageView.setSmooth(false);
+        imageView.setPreserveRatio(false);
+        imageView.setMouseTransparent(true);
+        return imageView;
+    }
+
+    private void removeInvisibleTileViews(Set<String> visibleTileKeys) {
+        Iterator<Map.Entry<String, ImageView>> iterator = tileViews.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, ImageView> entry = iterator.next();
+            if (!visibleTileKeys.contains(entry.getKey())) {
+                tileLayer.getChildren().remove(entry.getValue());
+                iterator.remove();
+            }
+        }
     }
 
     private int tilePriority(int tileX, int tileY, double centerTileX, double centerTileY) {
@@ -381,6 +404,7 @@ public final class WorldMapView extends CardPane implements AutoCloseable {
 
     @Override
     public void close() {
+        tileViews.clear();
         tileCache.close();
         reverseGeocoder.close();
     }
