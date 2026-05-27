@@ -26,6 +26,17 @@
         <javafx.version>26.0.1</javafx.version>
         <atlantafx.version>2.1.0</atlantafx.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
+
+        <aelia.weather.provider>auto</aelia.weather.provider>
+        <aelia.openmeteo.latitude></aelia.openmeteo.latitude>
+        <aelia.openmeteo.longitude></aelia.openmeteo.longitude>
+        <aelia.openmeteo.city></aelia.openmeteo.city>
+        <aelia.openmeteo.country></aelia.openmeteo.country>
+        <aelia.openmeteo.timezone></aelia.openmeteo.timezone>
+        <aelia.openmeteo.connectTimeoutSeconds>20</aelia.openmeteo.connectTimeoutSeconds>
+        <aelia.openmeteo.requestTimeoutSeconds>40</aelia.openmeteo.requestTimeoutSeconds>
+        <aelia.diagnostics>true</aelia.diagnostics>
+        <java.net.preferIPv4Stack>false</java.net.preferIPv4Stack>
     </properties>
 
     <dependencies>
@@ -72,6 +83,18 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>fr.alescis.aelia/fr.alescis.aelia.AeliaApplication</mainClass>
+                    <options>
+                        <option>-Daelia.weather.provider=${aelia.weather.provider}</option>
+                        <option>-Daelia.openmeteo.latitude=${aelia.openmeteo.latitude}</option>
+                        <option>-Daelia.openmeteo.longitude=${aelia.openmeteo.longitude}</option>
+                        <option>-Daelia.openmeteo.city=${aelia.openmeteo.city}</option>
+                        <option>-Daelia.openmeteo.country=${aelia.openmeteo.country}</option>
+                        <option>-Daelia.openmeteo.timezone=${aelia.openmeteo.timezone}</option>
+                        <option>-Daelia.openmeteo.connectTimeoutSeconds=${aelia.openmeteo.connectTimeoutSeconds}</option>
+                        <option>-Daelia.openmeteo.requestTimeoutSeconds=${aelia.openmeteo.requestTimeoutSeconds}</option>
+                        <option>-Daelia.diagnostics=${aelia.diagnostics}</option>
+                        <option>-Djava.net.preferIPv4Stack=${java.net.preferIPv4Stack}</option>
+                    </options>
                 </configuration>
             </plugin>
         </plugins>
