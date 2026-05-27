@@ -1,6 +1,8 @@
 package fr.alescis.aelia.ui;
 
 import fr.alescis.aelia.model.CurrentWeather;
+import fr.alescis.aelia.model.DashboardDataIssue;
+import fr.alescis.aelia.model.DashboardDataStatus;
 import fr.alescis.aelia.model.DashboardSnapshot;
 import fr.alescis.aelia.model.LocationWeather;
 import fr.alescis.aelia.ui.components.AirQualityCard;
@@ -20,6 +22,7 @@ import fr.alescis.aelia.ui.components.WindCard;
 import fr.alescis.aelia.ui.components.WorldMapView;
 import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.Pane;
 
@@ -27,6 +30,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Full desktop dashboard assembled according to the supplied 1374 x 854 mockup.
@@ -35,18 +39,24 @@ public class AeliaDashboardView extends Pane {
     public static final double DESIGN_WIDTH = 1374.0;
     public static final double DESIGN_HEIGHT = 854.0;
 
-    private final DashboardSnapshot snapshot;
-    private final List<LocationWeather> locations;
+    private final List<LocationWeather> locations = new ArrayList<>();
     private final Pane mainLayer = new Pane();
     private final Pane overlayLayer = new Pane();
+    private final DashboardRuntimeActions runtimeActions;
+    private DashboardSnapshot snapshot;
     private SidebarView sidebarView;
     private WorldMapView worldMapView;
     private int selectedLocationIndex;
 
-    @SuppressWarnings("this-escape")
     public AeliaDashboardView(DashboardSnapshot snapshot) {
-        this.snapshot = snapshot;
-        this.locations = new ArrayList<>(snapshot.locations());
+        this(snapshot, DashboardRuntimeActions.NO_OP);
+    }
+
+    @SuppressWarnings("this-escape")
+    public AeliaDashboardView(DashboardSnapshot snapshot, DashboardRuntimeActions runtimeActions) {
+        this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
+        this.runtimeActions = runtimeActions == null ? DashboardRuntimeActions.NO_OP : runtimeActions;
+        this.locations.addAll(snapshot.locations());
         this.selectedLocationIndex = selectedLocationIndex(locations);
         setPrefSize(DESIGN_WIDTH, DESIGN_HEIGHT);
         setMinSize(DESIGN_WIDTH, DESIGN_HEIGHT);
@@ -54,6 +64,18 @@ public class AeliaDashboardView extends Pane {
         getStyleClass().add("dashboard-root");
         setAccessibleRole(AccessibleRole.PARENT);
         setAccessibleText("Aelia weather dashboard for the selected location");
+        buildShell();
+    }
+
+    public void updateSnapshot(DashboardSnapshot nextSnapshot) {
+        this.snapshot = Objects.requireNonNull(nextSnapshot, "nextSnapshot");
+        locations.clear();
+        locations.addAll(nextSnapshot.locations());
+        selectedLocationIndex = selectedLocationIndex(locations);
+        closeMapView();
+        mainLayer.getChildren().clear();
+        overlayLayer.getChildren().clear();
+        getChildren().clear();
         buildShell();
     }
 
@@ -68,6 +90,7 @@ public class AeliaDashboardView extends Pane {
 
     private void buildShell() {
         mainLayer.setPrefSize(DESIGN_WIDTH, DESIGN_HEIGHT);
+        mainLayer.setVisible(true);
         overlayLayer.setPrefSize(DESIGN_WIDTH, DESIGN_HEIGHT);
         overlayLayer.setVisible(false);
         overlayLayer.setManaged(false);
@@ -102,6 +125,39 @@ public class AeliaDashboardView extends Pane {
         placeOnMain(new AirQualityCard(currentWeather.airQuality()), 852, 328);
         placeOnMain(new PollenCard(snapshot.pollenRisks()), 1120, 328);
         placeOnMain(new SunPathCard(currentWeather), 852, 594);
+        renderDataStatusBanner();
+    }
+
+    private void renderDataStatusBanner() {
+        DashboardDataStatus status = snapshot.dataStatus();
+        if (!status.visible()) {
+            return;
+        }
+        CardPane banner = new CardPane(1094, 40);
+        banner.getStyleClass().add(status.hasBlockingIssues() ? "data-status-banner-error" : "data-status-banner");
+        banner.setLayoutX(280);
+        banner.setLayoutY(806);
+
+        Label title = UiText.label(status.headline(), "data-status-title");
+        title.setLayoutX(18);
+        title.setLayoutY(8);
+        title.setPrefWidth(190);
+
+        Label body = UiText.label(statusText(status), "data-status-body");
+        body.setLayoutX(218);
+        body.setLayoutY(8);
+        body.setPrefWidth(840);
+        body.setAlignment(Pos.CENTER_LEFT);
+        banner.getChildren().addAll(title, body);
+        mainLayer.getChildren().add(banner);
+    }
+
+    private String statusText(DashboardDataStatus status) {
+        if (status.issues().isEmpty()) {
+            return status.sourceLabel() + " · mode " + status.providerMode() + " · " + status.details();
+        }
+        DashboardDataIssue issue = status.issues().get(0);
+        return status.sourceLabel() + " · mode " + status.providerMode() + " · " + issue.source() + " : " + issue.message();
     }
 
     private void selectLocation(int index) {
@@ -170,10 +226,11 @@ public class AeliaDashboardView extends Pane {
             showMapView();
             return;
         }
-        String title = switch (id) {
-            case "settings" -> "Réglages";
-            default -> id == null ? "Vue" : id;
-        };
+        if ("settings".equals(id)) {
+            overlayLayer.getChildren().add(settingsView());
+            return;
+        }
+        String title = id == null ? "Vue" : id;
         overlayLayer.getChildren().add(inProgressView(title));
     }
 
@@ -184,6 +241,67 @@ public class AeliaDashboardView extends Pane {
             worldMapView.setLayoutY(16);
         }
         overlayLayer.getChildren().add(worldMapView);
+    }
+
+    private Pane settingsView() {
+        CardPane card = new CardPane(1094, 822);
+        card.getStyleClass().add("settings-card");
+        card.setLayoutX(280);
+        card.setLayoutY(16);
+
+        Label heading = UiText.section("Réglages des données météo");
+        heading.getStyleClass().add("settings-title");
+        heading.setLayoutX(28);
+        heading.setLayoutY(24);
+        heading.setPrefWidth(650);
+
+        DashboardDataStatus status = snapshot.dataStatus();
+        Label current = UiText.label(statusText(status), "settings-status");
+        current.setLayoutX(28);
+        current.setLayoutY(70);
+        current.setPrefWidth(980);
+        current.setWrapText(true);
+
+        Button auto = providerButton("Mode auto", "auto", 28, 132);
+        Button api = providerButton("Mode API", "api", 178, 132);
+        Button simulation = providerButton("Simulation", "simulated", 328, 132);
+        Button refresh = new Button("Rafraîchir les API");
+        refresh.getStyleClass().add("settings-button");
+        refresh.setLayoutX(478);
+        refresh.setLayoutY(132);
+        refresh.setPrefSize(180, 38);
+        refresh.setOnAction(event -> runtimeActions.refreshProviderData());
+
+        Label modeTitle = UiText.section("Modes disponibles");
+        modeTitle.setLayoutX(28);
+        modeTitle.setLayoutY(220);
+        Label modes = UiText.label("auto : démarre instantanément avec la simulation puis tente les API distantes.\napi : tente les API distantes en priorité puis signale l'échec.\nsimulated : n'utilise que les données locales.", "settings-body");
+        modes.setLayoutX(28);
+        modes.setLayoutY(258);
+        modes.setPrefWidth(980);
+        modes.setWrapText(true);
+
+        Label envTitle = UiText.section("Paramètres pris en charge");
+        envTitle.setLayoutX(28);
+        envTitle.setLayoutY(380);
+        Label env = UiText.label("AELIA_WEATHER_PROVIDER, AELIA_OPENMETEO_LATITUDE, AELIA_OPENMETEO_LONGITUDE, AELIA_OPENMETEO_CITY, AELIA_OPENMETEO_COUNTRY, AELIA_OPENMETEO_TIMEZONE, AELIA_WEATHERAPI_API_KEY, AELIA_VISUALCROSSING_API_KEY, AELIA_OPENWEATHER_API_KEY, AELIA_WEATHERBIT_API_KEY, AELIA_PIRATEWEATHER_API_KEY.", "settings-body-muted");
+        env.setLayoutX(28);
+        env.setLayoutY(418);
+        env.setPrefWidth(980);
+        env.setWrapText(true);
+
+        card.getChildren().addAll(heading, current, auto, api, simulation, refresh, modeTitle, modes, envTitle, env);
+        return card;
+    }
+
+    private Button providerButton(String text, String mode, double x, double y) {
+        Button button = new Button(text);
+        button.getStyleClass().add("settings-button");
+        button.setLayoutX(x);
+        button.setLayoutY(y);
+        button.setPrefSize(132, 38);
+        button.setOnAction(event -> runtimeActions.selectProviderMode(mode));
+        return button;
     }
 
     private void addLocationFromMap(LocationWeather location) {
@@ -240,6 +358,13 @@ public class AeliaDashboardView extends Pane {
 
         card.getChildren().addAll(heading, body, hint);
         return card;
+    }
+
+    private void closeMapView() {
+        if (worldMapView != null) {
+            worldMapView.close();
+            worldMapView = null;
+        }
     }
 
     private void placeOnRoot(Pane pane, double x, double y) {
