@@ -101,7 +101,6 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
                 ProviderDiagnostics.warn(source.label() + " failed. Trying next configured provider.", exception);
             }
         }
-
         RuntimeException failure = combinedFailure(failures);
         if (WeatherProviderFactory.MODE_AUTO.equals(providerMode)) {
             ProviderDiagnostics.warn("Every remote provider failed in auto mode. Falling back to simulation.", failure);
@@ -122,7 +121,9 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
                 new ApiLimit("Open-Meteo Air Quality", "cache", "45 min"),
                 new ApiLimit("WeatherAPI.com fallback", "clé", configuration.weatherApiEnabled() ? "activé" : "désactivé"),
                 new ApiLimit("Visual Crossing fallback", "clé", configuration.visualCrossingEnabled() ? "activé" : "désactivé"),
-                new ApiLimit("OpenWeather fallback", "clé", configuration.openWeatherEnabled() ? "activé" : "désactivé")
+                new ApiLimit("OpenWeather fallback", "clé", configuration.openWeatherEnabled() ? "activé" : "désactivé"),
+                new ApiLimit("Weatherbit fallback", "clé", configuration.weatherbitEnabled() ? "activé" : "désactivé"),
+                new ApiLimit("Pirate Weather fallback", "clé", configuration.pirateWeatherEnabled() ? "activé" : "désactivé")
         );
     }
 
@@ -140,9 +141,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
             case "uv" -> weather.uvIndex();
             case "aqi" -> weather.airQuality().airQualityIndex();
             case "pm25" -> weather.airQuality().pm25MicrogramsPerCubicMeter();
-            case "grass_pollen" -> snapshot.pollenRisks().isEmpty()
-                    ? 0.0
-                    : snapshot.pollenRisks().get(0).level().ordinal();
+            case "grass_pollen" -> snapshot.pollenRisks().isEmpty() ? 0.0 : snapshot.pollenRisks().get(0).level().ordinal();
             default -> throw new IllegalArgumentException("Unsupported metric id: " + metricId);
         };
         String unit = supportedMetrics().stream()
@@ -262,7 +261,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
     }
 
     private DashboardSnapshot visualCrossingSnapshot() {
-        URI base = configuration.visualCrossingEndpoint().resolve(configuration.visualCrossingEndpoint().getPath()
+        URI base = URI.create(configuration.visualCrossingEndpoint().toString().replaceAll("/+$", "")
                 + "/" + configuration.latitude() + "," + configuration.longitude());
         Map<String, String> query = new LinkedHashMap<>();
         query.put("unitGroup", "metric");
@@ -552,88 +551,88 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         }
 
         static RemoteReading fromOpenMeteo(RemoteConfiguration configuration, String forecast, String airQuality) {
-            int weatherCode = json.number(forecast, "weather_code").map(Double::intValue).orElse(2);
+            int weatherCode = Json.number(forecast, "weather_code").map(Double::intValue).orElse(2);
             WeatherCondition condition = conditionFromOpenMeteo(weatherCode);
-            int temperature = rounded(json.number(forecast, "temperature_2m").orElse(0.0));
-            int apparent = rounded(json.number(forecast, "apparent_temperature").orElse((double) temperature));
-            int humidity = percentage(json.number(forecast, "relative_humidity_2m").orElse(55.0));
-            int windSpeed = rounded(json.number(forecast, "wind_speed_10m").orElse(0.0));
-            String windDirection = windDirection(json.number(forecast, "wind_direction_10m").orElse(0.0));
-            int windGust = rounded(json.number(forecast, "wind_gusts_10m").orElse((double) windSpeed));
-            int pressure = rounded(json.number(forecast, "surface_pressure").orElse(1015.0));
-            List<Double> maxValues = json.numberArray(forecast, "temperature_2m_max");
-            List<Double> minValues = json.numberArray(forecast, "temperature_2m_min");
-            List<Double> uvValues = json.numberArray(forecast, "uv_index_max");
+            int temperature = rounded(Json.number(forecast, "temperature_2m").orElse(0.0));
+            int apparent = rounded(Json.number(forecast, "apparent_temperature").orElse((double) temperature));
+            int humidity = percentage(Json.number(forecast, "relative_humidity_2m").orElse(55.0));
+            int windSpeed = rounded(Json.number(forecast, "wind_speed_10m").orElse(0.0));
+            String directionLabel = windDirectionLabel(Json.number(forecast, "wind_direction_10m").orElse(0.0));
+            int windGust = rounded(Json.number(forecast, "wind_gusts_10m").orElse((double) windSpeed));
+            int pressure = rounded(Json.number(forecast, "surface_pressure").orElse(1015.0));
+            List<Double> maxValues = Json.numberArray(forecast, "temperature_2m_max");
+            List<Double> minValues = Json.numberArray(forecast, "temperature_2m_min");
+            List<Double> uvValues = Json.numberArray(forecast, "uv_index_max");
             int max = rounded(first(maxValues, temperature + 2.0));
             int min = rounded(first(minValues, temperature - 3.0));
             int uv = rounded(first(uvValues, 3.0));
-            List<Double> rainValues = json.numberArray(forecast, "precipitation_probability_max");
+            List<Double> rainValues = Json.numberArray(forecast, "precipitation_probability_max");
             int rain = percentage(first(rainValues, 0.0));
-            LocalTime sunrise = firstTime(json.stringArray(forecast, "sunrise"), LocalTime.of(6, 0));
-            LocalTime sunset = firstTime(json.stringArray(forecast, "sunset"), LocalTime.of(21, 0));
+            LocalTime sunrise = firstTime(Json.stringArray(forecast, "sunrise"), LocalTime.of(6, 0));
+            LocalTime sunset = firstTime(Json.stringArray(forecast, "sunset"), LocalTime.of(21, 0));
             AirQuality aq = airQuality.isBlank() ? defaultAirQuality() : airQuality(airQuality);
             List<PollenRisk> pollen = airQuality.isBlank() ? SimulationCatalog.pollenRisks() : pollen(airQuality);
             return new RemoteReading(configuration, "Open-Meteo", condition, temperature, apparent, max, min, humidity,
-                    windSpeed, windDirection, windGust, pressure, uv, rain, sunrise, sunset,
+                    windSpeed, directionLabel, windGust, pressure, uv, rain, sunrise, sunset,
                     openMeteoHourly(forecast), openMeteoDaily(forecast), aq, pollen);
         }
 
         static RemoteReading fromWeatherApi(RemoteConfiguration configuration, String jsonText) {
-            int temp = rounded(json.number(jsonText, "temp_c").orElse(0.0));
-            int apparent = rounded(json.number(jsonText, "feelslike_c").orElse((double) temp));
-            int humidity = percentage(json.number(jsonText, "humidity").orElse(55.0));
-            int wind = rounded(json.number(jsonText, "wind_kph").orElse(0.0));
-            int gust = rounded(json.number(jsonText, "gust_kph").orElse((double) wind));
-            int pressure = rounded(json.number(jsonText, "pressure_mb").orElse(1015.0));
-            WeatherCondition condition = conditionFromText(json.string(jsonText, "text").orElse(""));
+            int temp = rounded(Json.number(jsonText, "temp_c").orElse(0.0));
+            int apparent = rounded(Json.number(jsonText, "feelslike_c").orElse((double) temp));
+            int humidity = percentage(Json.number(jsonText, "humidity").orElse(55.0));
+            int wind = rounded(Json.number(jsonText, "wind_kph").orElse(0.0));
+            int gust = rounded(Json.number(jsonText, "gust_kph").orElse((double) wind));
+            int pressure = rounded(Json.number(jsonText, "pressure_mb").orElse(1015.0));
+            WeatherCondition condition = conditionFromText(Json.string(jsonText, "text").orElse(""));
             return compact(configuration, "WeatherAPI.com", condition, temp, apparent, humidity, wind, gust, pressure,
-                    rounded(json.number(jsonText, "uv").orElse(3.0)), defaultAirQuality());
+                    rounded(Json.number(jsonText, "uv").orElse(3.0)), defaultAirQuality());
         }
 
         static RemoteReading fromVisualCrossing(RemoteConfiguration configuration, String jsonText) {
-            int temp = rounded(json.number(jsonText, "temp").orElse(0.0));
-            int apparent = rounded(json.number(jsonText, "feelslike").orElse((double) temp));
-            int humidity = percentage(json.number(jsonText, "humidity").orElse(55.0));
-            int wind = rounded(json.number(jsonText, "windspeed").orElse(0.0));
-            int gust = rounded(json.number(jsonText, "windgust").orElse((double) wind));
-            int pressure = rounded(json.number(jsonText, "pressure").orElse(1015.0));
-            WeatherCondition condition = conditionFromText(json.string(jsonText, "conditions").orElse(""));
+            int temp = rounded(Json.number(jsonText, "temp").orElse(0.0));
+            int apparent = rounded(Json.number(jsonText, "feelslike").orElse((double) temp));
+            int humidity = percentage(Json.number(jsonText, "humidity").orElse(55.0));
+            int wind = rounded(Json.number(jsonText, "windspeed").orElse(0.0));
+            int gust = rounded(Json.number(jsonText, "windgust").orElse((double) wind));
+            int pressure = rounded(Json.number(jsonText, "pressure").orElse(1015.0));
+            WeatherCondition condition = conditionFromText(Json.string(jsonText, "conditions").orElse(""));
             return compact(configuration, "Visual Crossing", condition, temp, apparent, humidity, wind, gust, pressure,
-                    rounded(json.number(jsonText, "uvindex").orElse(3.0)), defaultAirQuality());
+                    rounded(Json.number(jsonText, "uvindex").orElse(3.0)), defaultAirQuality());
         }
 
         static RemoteReading fromOpenWeather(RemoteConfiguration configuration, String jsonText) {
-            int temp = rounded(json.number(jsonText, "temp").orElse(0.0));
-            int apparent = rounded(json.number(jsonText, "feels_like").orElse((double) temp));
-            int humidity = percentage(json.number(jsonText, "humidity").orElse(55.0));
-            int wind = rounded(json.number(jsonText, "speed").orElse(0.0) * 3.6);
-            int pressure = rounded(json.number(jsonText, "pressure").orElse(1015.0));
-            int weatherId = json.number(jsonText, "id").map(Double::intValue).orElse(800);
+            int temp = rounded(Json.number(jsonText, "temp").orElse(0.0));
+            int apparent = rounded(Json.number(jsonText, "feels_like").orElse((double) temp));
+            int humidity = percentage(Json.number(jsonText, "humidity").orElse(55.0));
+            int wind = rounded(Json.number(jsonText, "speed").orElse(0.0) * 3.6);
+            int pressure = rounded(Json.number(jsonText, "pressure").orElse(1015.0));
+            int weatherId = Json.number(jsonText, "id").map(Double::intValue).orElse(800);
             WeatherCondition condition = conditionFromOpenWeather(weatherId);
             return compact(configuration, "OpenWeather", condition, temp, apparent, humidity, wind, wind, pressure, 3, defaultAirQuality());
         }
 
         static RemoteReading fromWeatherbit(RemoteConfiguration configuration, String jsonText) {
-            int temp = rounded(json.number(jsonText, "temp").orElse(0.0));
-            int apparent = rounded(json.number(jsonText, "app_temp").orElse((double) temp));
-            int humidity = percentage(json.number(jsonText, "rh").orElse(55.0));
-            int wind = rounded(json.number(jsonText, "wind_spd").orElse(0.0) * 3.6);
-            int pressure = rounded(json.number(jsonText, "pres").orElse(1015.0));
-            int code = json.number(jsonText, "code").map(Double::intValue).orElse(800);
+            int temp = rounded(Json.number(jsonText, "temp").orElse(0.0));
+            int apparent = rounded(Json.number(jsonText, "app_temp").orElse((double) temp));
+            int humidity = percentage(Json.number(jsonText, "rh").orElse(55.0));
+            int wind = rounded(Json.number(jsonText, "wind_spd").orElse(0.0) * 3.6);
+            int pressure = rounded(Json.number(jsonText, "pres").orElse(1015.0));
+            int code = Json.number(jsonText, "code").map(Double::intValue).orElse(800);
             WeatherCondition condition = conditionFromOpenWeather(code);
             return compact(configuration, "Weatherbit", condition, temp, apparent, humidity, wind, wind, pressure, 3, defaultAirQuality());
         }
 
         static RemoteReading fromPirateWeather(RemoteConfiguration configuration, String jsonText) {
-            int temp = rounded(json.number(jsonText, "temperature").orElse(0.0));
-            int apparent = rounded(json.number(jsonText, "apparentTemperature").orElse((double) temp));
-            int humidity = percentage(json.number(jsonText, "humidity").orElse(0.55) * 100.0);
-            int wind = rounded(json.number(jsonText, "windSpeed").orElse(0.0) * 3.6);
-            int gust = rounded(json.number(jsonText, "windGust").orElse((double) wind));
-            int pressure = rounded(json.number(jsonText, "pressure").orElse(1015.0));
-            WeatherCondition condition = conditionFromText(json.string(jsonText, "icon").orElse(""));
+            int temp = rounded(Json.number(jsonText, "temperature").orElse(0.0));
+            int apparent = rounded(Json.number(jsonText, "apparentTemperature").orElse((double) temp));
+            int humidity = percentage(Json.number(jsonText, "humidity").orElse(0.55) * 100.0);
+            int wind = rounded(Json.number(jsonText, "windSpeed").orElse(0.0) * 3.6);
+            int gust = rounded(Json.number(jsonText, "windGust").orElse((double) wind));
+            int pressure = rounded(Json.number(jsonText, "pressure").orElse(1015.0));
+            WeatherCondition condition = conditionFromText(Json.string(jsonText, "icon").orElse(""));
             return compact(configuration, "Pirate Weather", condition, temp, apparent, humidity, wind, gust, pressure,
-                    rounded(json.number(jsonText, "uvIndex").orElse(3.0)), defaultAirQuality());
+                    rounded(Json.number(jsonText, "uvIndex").orElse(3.0)), defaultAirQuality());
         }
 
         private static RemoteReading compact(RemoteConfiguration configuration, String source, WeatherCondition condition,
@@ -645,10 +644,10 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         }
 
         private static AirQuality airQuality(String jsonText) {
-            int aqi = rounded(json.number(jsonText, "european_aqi").orElse(0.0));
-            int pm25 = rounded(json.number(jsonText, "pm2_5").orElse(0.0));
-            int pm10 = rounded(json.number(jsonText, "pm10").orElse(0.0));
-            int no2 = rounded(json.number(jsonText, "nitrogen_dioxide").orElse(0.0));
+            int aqi = rounded(Json.number(jsonText, "european_aqi").orElse(0.0));
+            int pm25 = rounded(Json.number(jsonText, "pm2_5").orElse(0.0));
+            int pm10 = rounded(Json.number(jsonText, "pm10").orElse(0.0));
+            int no2 = rounded(Json.number(jsonText, "nitrogen_dioxide").orElse(0.0));
             return new AirQuality(Math.max(0, aqi), aqi <= 40 ? "BON" : aqi <= 80 ? "MODÉRÉ" : "DÉGRADÉ",
                     Math.max(0, pm25), Math.max(0, pm10), Math.max(0, no2));
         }
@@ -659,10 +658,10 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
 
         private static List<PollenRisk> pollen(String jsonText) {
             return List.of(
-                    new PollenRisk("Graminées", pollenLevel(json.number(jsonText, "grass_pollen").orElse(0.0))),
-                    new PollenRisk("Bouleau", pollenLevel(json.number(jsonText, "birch_pollen").orElse(0.0))),
-                    new PollenRisk("Olivier", pollenLevel(json.number(jsonText, "olive_pollen").orElse(0.0))),
-                    new PollenRisk("Ambroisie", pollenLevel(json.number(jsonText, "ragweed_pollen").orElse(0.0)))
+                    new PollenRisk("Graminées", pollenLevel(Json.number(jsonText, "grass_pollen").orElse(0.0))),
+                    new PollenRisk("Bouleau", pollenLevel(Json.number(jsonText, "birch_pollen").orElse(0.0))),
+                    new PollenRisk("Olivier", pollenLevel(Json.number(jsonText, "olive_pollen").orElse(0.0))),
+                    new PollenRisk("Ambroisie", pollenLevel(Json.number(jsonText, "ragweed_pollen").orElse(0.0)))
             );
         }
     }
@@ -681,9 +680,9 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
     }
 
     private static List<HourlyForecast> openMeteoHourly(String forecast) {
-        List<String> times = json.stringArray(forecast, "time");
-        List<Double> temperatures = json.numberArray(forecast, "temperature_2m");
-        List<Double> codes = json.numberArray(forecast, "weather_code");
+        List<String> times = Json.stringArray(forecast, "time");
+        List<Double> temperatures = Json.numberArray(forecast, "temperature_2m");
+        List<Double> codes = Json.numberArray(forecast, "weather_code");
         List<HourlyForecast> values = new ArrayList<>();
         int count = Math.min(8, Math.min(times.size(), temperatures.size()));
         for (int index = 0; index < count; index++) {
@@ -694,13 +693,13 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
     }
 
     private static List<DailyForecast> openMeteoDaily(String forecast) {
-        List<String> days = json.stringArray(forecast, "time");
-        List<Double> codes = json.numberArray(forecast, "weather_code");
-        List<Double> max = json.numberArray(forecast, "temperature_2m_max");
-        List<Double> min = json.numberArray(forecast, "temperature_2m_min");
-        List<Double> rain = json.numberArray(forecast, "precipitation_probability_max");
-        List<Double> wind = json.numberArray(forecast, "wind_speed_10m_max");
-        List<Double> uv = json.numberArray(forecast, "uv_index_max");
+        List<String> days = Json.stringArray(forecast, "time");
+        List<Double> codes = Json.numberArray(forecast, "weather_code");
+        List<Double> max = Json.numberArray(forecast, "temperature_2m_max");
+        List<Double> min = Json.numberArray(forecast, "temperature_2m_min");
+        List<Double> rain = Json.numberArray(forecast, "precipitation_probability_max");
+        List<Double> wind = Json.numberArray(forecast, "wind_speed_10m_max");
+        List<Double> uv = Json.numberArray(forecast, "uv_index_max");
         List<DailyForecast> values = new ArrayList<>();
         int count = Math.min(7, Math.min(days.size(), Math.min(max.size(), min.size())));
         for (int index = 0; index < count; index++) {
@@ -809,7 +808,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         return PollenLevel.EXTREME;
     }
 
-    private static String windDirection(double degrees) {
+    private static String windDirectionLabel(double degrees) {
         String[] directions = {"N", "NE", "E", "SE", "S", "SO", "O", "NO"};
         int index = (int) Math.round((((degrees % 360.0) + 360.0) % 360.0) / 45.0) % directions.length;
         return directions[index];
@@ -862,8 +861,8 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         return index >= 0 && index < values.size() ? values.get(index).intValue() : fallback;
     }
 
-    private static final class json {
-        private json() {
+    private static final class Json {
+        private Json() {
         }
 
         static Optional<Double> number(String text, String key) {
@@ -875,26 +874,23 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
             if (colon < 0) {
                 return Optional.empty();
             }
-            int start = colon + 1;
-            while (start < text.length() && Character.isWhitespace(text.charAt(start))) {
-                start++;
+            int cursor = colon + 1;
+            while (cursor < text.length() && Character.isWhitespace(text.charAt(cursor))) {
+                cursor++;
             }
-            if (start < text.length() && text.startsWith("null", start)) {
-                return Optional.empty();
-            }
-            int end = start;
-            while (end < text.length()) {
-                char c = text.charAt(end);
-                if (!(c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E' || Character.isDigit(c))) {
+            int start = cursor;
+            while (cursor < text.length()) {
+                char c = text.charAt(cursor);
+                if (!(Character.isDigit(c) || c == '-' || c == '+' || c == '.' || c == 'E' || c == 'e')) {
                     break;
                 }
-                end++;
+                cursor++;
             }
-            if (end <= start) {
+            if (start == cursor) {
                 return Optional.empty();
             }
             try {
-                return Optional.of(Double.parseDouble(text.substring(start, end)));
+                return Optional.of(Double.parseDouble(text.substring(start, cursor)));
             } catch (NumberFormatException exception) {
                 return Optional.empty();
             }
@@ -906,119 +902,116 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
                 return Optional.empty();
             }
             int colon = text.indexOf(':', index);
-            int quote = colon < 0 ? -1 : text.indexOf('"', colon + 1);
+            if (colon < 0) {
+                return Optional.empty();
+            }
+            int quote = text.indexOf('"', colon + 1);
             if (quote < 0) {
                 return Optional.empty();
             }
-            int end = quote + 1;
-            StringBuilder builder = new StringBuilder();
-            boolean escaped = false;
-            while (end < text.length()) {
-                char c = text.charAt(end++);
-                if (escaped) {
-                    builder.append(c);
-                    escaped = false;
+            StringBuilder value = new StringBuilder();
+            boolean escape = false;
+            for (int cursor = quote + 1; cursor < text.length(); cursor++) {
+                char c = text.charAt(cursor);
+                if (escape) {
+                    value.append(c);
+                    escape = false;
                 } else if (c == '\\') {
-                    escaped = true;
+                    escape = true;
                 } else if (c == '"') {
-                    return Optional.of(builder.toString());
+                    return Optional.of(value.toString());
                 } else {
-                    builder.append(c);
+                    value.append(c);
                 }
             }
             return Optional.empty();
         }
 
         static List<Double> numberArray(String text, String key) {
-            String content = arrayContent(text, key).orElse("");
-            List<Double> values = new ArrayList<>();
-            int index = 0;
-            while (index < content.length()) {
-                while (index < content.length() && !(content.charAt(index) == '-' || content.charAt(index) == '+'
-                        || content.charAt(index) == '.' || Character.isDigit(content.charAt(index)))) {
-                    index++;
-                }
-                int start = index;
-                while (index < content.length()) {
-                    char c = content.charAt(index);
-                    if (!(c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E' || Character.isDigit(c))) {
-                        break;
+            return arrayBody(text, key).map(body -> {
+                List<Double> values = new ArrayList<>();
+                for (String raw : body.split(",")) {
+                    String value = raw.trim();
+                    if (value.isEmpty() || value.equals("null")) {
+                        continue;
                     }
-                    index++;
-                }
-                if (index > start) {
                     try {
-                        values.add(Double.parseDouble(content.substring(start, index)));
+                        values.add(Double.parseDouble(value));
                     } catch (NumberFormatException ignored) {
+                        // Ignore non-numeric values in lenient provider parsing.
                     }
                 }
-            }
-            return values;
+                return values;
+            }).orElse(List.of());
         }
 
         static List<String> stringArray(String text, String key) {
-            String content = arrayContent(text, key).orElse("");
-            List<String> values = new ArrayList<>();
-            int index = 0;
-            while (index < content.length()) {
-                int quote = content.indexOf('"', index);
-                if (quote < 0) {
-                    break;
-                }
-                int end = quote + 1;
-                StringBuilder builder = new StringBuilder();
-                boolean escaped = false;
-                while (end < content.length()) {
-                    char c = content.charAt(end++);
-                    if (escaped) {
-                        builder.append(c);
-                        escaped = false;
-                    } else if (c == '\\') {
-                        escaped = true;
-                    } else if (c == '"') {
-                        values.add(builder.toString());
+            return arrayBody(text, key).map(body -> {
+                List<String> values = new ArrayList<>();
+                int cursor = 0;
+                while (cursor < body.length()) {
+                    int quote = body.indexOf('"', cursor);
+                    if (quote < 0) {
                         break;
-                    } else {
-                        builder.append(c);
                     }
+                    StringBuilder value = new StringBuilder();
+                    boolean escape = false;
+                    for (int i = quote + 1; i < body.length(); i++) {
+                        char c = body.charAt(i);
+                        if (escape) {
+                            value.append(c);
+                            escape = false;
+                        } else if (c == '\\') {
+                            escape = true;
+                        } else if (c == '"') {
+                            values.add(value.toString());
+                            cursor = i + 1;
+                            break;
+                        } else {
+                            value.append(c);
+                        }
+                    }
+                    cursor++;
                 }
-                index = end;
-            }
-            return values;
+                return values;
+            }).orElse(List.of());
         }
 
-        private static Optional<String> arrayContent(String text, String key) {
+        private static Optional<String> arrayBody(String text, String key) {
             int index = keyIndex(text, key);
             if (index < 0) {
                 return Optional.empty();
             }
-            int start = text.indexOf('[', index);
-            if (start < 0) {
+            int open = text.indexOf('[', index);
+            if (open < 0) {
                 return Optional.empty();
             }
             int depth = 0;
             boolean inString = false;
-            boolean escaped = false;
-            for (int cursor = start; cursor < text.length(); cursor++) {
+            boolean escape = false;
+            for (int cursor = open; cursor < text.length(); cursor++) {
                 char c = text.charAt(cursor);
-                if (inString) {
-                    if (escaped) {
-                        escaped = false;
-                    } else if (c == '\\') {
-                        escaped = true;
-                    } else if (c == '"') {
-                        inString = false;
-                    }
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    escape = true;
                     continue;
                 }
                 if (c == '"') {
-                    inString = true;
-                } else if (c == '[') {
+                    inString = !inString;
+                    continue;
+                }
+                if (inString) {
+                    continue;
+                }
+                if (c == '[') {
                     depth++;
                 } else if (c == ']') {
                     depth--;
                     if (depth == 0) {
-                        return Optional.of(text.substring(start + 1, cursor));
+                        return Optional.of(text.substring(open + 1, cursor));
                     }
                 }
             }
@@ -1026,7 +1019,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         }
 
         private static int keyIndex(String text, String key) {
-            if (text == null || text.isBlank()) {
+            if (text == null || key == null) {
                 return -1;
             }
             return text.indexOf('"' + key + '"');
