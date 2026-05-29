@@ -165,9 +165,11 @@ public class AeliaDashboardView extends Pane {
             return;
         }
         selectedLocationIndex = index;
+        LocationWeather selectedLocation = locations.get(index);
         renderMainDashboard(currentWeatherForSelectedLocation());
         mainLayer.setVisible(true);
         overlayLayer.setVisible(false);
+        runtimeActions.selectWeatherLocation(selectedLocation);
     }
 
     private CurrentWeather currentWeatherForSelectedLocation() {
