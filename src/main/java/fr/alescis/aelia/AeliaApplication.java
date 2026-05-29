@@ -144,11 +144,6 @@ public final class AeliaApplication extends Application {
             service = new AeliaWeatherService(provider);
             providerMode = activeMode;
             consecutiveRefreshFailures = 0;
-            Platform.runLater(() -> dashboardView.updateSnapshot(
-                    WeatherProviderFactory.simulatedSnapshot(activeMode).withDataStatus(
-                            DashboardDataStatus.unavailable(activeMode, "Chargement des données météo pour " + location.city() + ".")
-                    )
-            ));
             scheduleProviderRefresh(Duration.ZERO);
         });
     }
