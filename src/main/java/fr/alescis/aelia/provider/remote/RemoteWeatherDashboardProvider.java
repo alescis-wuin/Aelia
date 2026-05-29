@@ -553,6 +553,8 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         static RemoteReading fromOpenMeteo(RemoteConfiguration configuration, String forecast, String airQuality) {
             String current = Json.object(forecast, "current").orElseThrow(() -> new RemoteWeatherException("Open-Meteo response has no current object."));
             String daily = Json.object(forecast, "daily").orElse("");
+            String currentTime = Json.string(current, "time").orElse("");
+            String responseTimezone = Json.string(forecast, "timezone").orElse(configuration.zoneId().getId());
             int weatherCode = requiredNumber(current, "weather_code", "Open-Meteo current.weather_code").intValue();
             WeatherCondition condition = conditionFromOpenMeteo(weatherCode);
             int temperature = rounded(requiredNumber(current, "temperature_2m", "Open-Meteo current.temperature_2m"));
@@ -574,9 +576,20 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
             LocalTime sunset = firstTime(Json.stringArray(daily, "sunset"), LocalTime.of(21, 0));
             AirQuality aq = airQuality.isBlank() ? defaultAirQuality() : openMeteoAirQuality(airQuality);
             List<PollenRisk> pollen = airQuality.isBlank() ? SimulationCatalog.pollenRisks() : openMeteoPollen(airQuality);
+            List<HourlyForecast> hourly = openMeteoHourly(forecast, currentTime);
+            ProviderDiagnostics.info("Open-Meteo parsed current: city=" + configuration.city()
+                    + ", latitude=" + configuration.latitude()
+                    + ", longitude=" + configuration.longitude()
+                    + ", timezone=" + responseTimezone
+                    + ", currentTime=" + currentTime
+                    + ", temperature=" + temperature
+                    + ", apparent=" + apparent
+                    + ", max=" + max
+                    + ", min=" + min
+                    + ", firstHourly=" + (hourly.isEmpty() ? "none" : hourly.get(0).hour() + "=" + hourly.get(0).temperatureCelsius()));
             return new RemoteReading(configuration, "Open-Meteo", condition, temperature, apparent, max, min, humidity,
                     windSpeed, directionLabel, windGust, pressure, uv, rain, sunrise, sunset,
-                    openMeteoHourly(forecast), openMeteoDaily(forecast), aq, pollen);
+                    hourly, openMeteoDaily(forecast), aq, pollen);
         }
 
         static RemoteReading fromWeatherApi(RemoteConfiguration configuration, String jsonText) {
@@ -683,18 +696,37 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         return locations;
     }
 
-    private static List<HourlyForecast> openMeteoHourly(String forecast) {
+    private static List<HourlyForecast> openMeteoHourly(String forecast, String currentTime) {
         String hourly = Json.object(forecast, "hourly").orElse("");
         List<String> times = Json.stringArray(hourly, "time");
         List<Double> temperatures = Json.numberArray(hourly, "temperature_2m");
         List<Double> codes = Json.numberArray(hourly, "weather_code");
         List<HourlyForecast> values = new ArrayList<>();
-        int count = Math.min(8, Math.min(times.size(), temperatures.size()));
-        for (int index = 0; index < count; index++) {
+        int startIndex = firstHourlyIndexAtOrAfter(times, currentTime);
+        int endIndex = Math.min(times.size(), Math.min(temperatures.size(), startIndex + 8));
+        for (int index = startIndex; index < endIndex; index++) {
             values.add(new HourlyForecast(timeOf(times.get(index)), conditionFromOpenMeteo(intAt(codes, index, 2)),
-                    rounded(temperatures.get(index)), index == 0));
+                    rounded(temperatures.get(index)), index == startIndex));
         }
         return values;
+    }
+
+    private static int firstHourlyIndexAtOrAfter(List<String> times, String currentTime) {
+        if (times.isEmpty()) {
+            return 0;
+        }
+        LocalDateTime current = dateTimeOf(currentTime);
+        if (current == null) {
+            return 0;
+        }
+        LocalDateTime currentHour = current.withMinute(0).withSecond(0).withNano(0);
+        for (int index = 0; index < times.size(); index++) {
+            LocalDateTime candidate = dateTimeOf(times.get(index));
+            if (candidate != null && !candidate.isBefore(currentHour)) {
+                return index;
+            }
+        }
+        return Math.max(0, times.size() - 8);
     }
 
     private static List<DailyForecast> openMeteoDaily(String forecast) {
@@ -834,17 +866,36 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
     }
 
     private static LocalTime timeOf(String value) {
+        LocalDateTime dateTime = dateTimeOf(value);
+        if (dateTime != null) {
+            return dateTime.toLocalTime();
+        }
         if (value == null || value.isBlank()) {
             return LocalTime.NOON;
         }
         String normalized = value.trim();
-        if (normalized.length() >= 16 && normalized.charAt(10) == 'T') {
-            return LocalDateTime.parse(normalized.substring(0, 16)).toLocalTime();
-        }
         if (normalized.length() >= 5 && normalized.charAt(2) == ':') {
             return LocalTime.parse(normalized.substring(0, 5));
         }
         return LocalTime.NOON;
+    }
+
+    private static LocalDateTime dateTimeOf(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim();
+        try {
+            if (normalized.length() >= 16 && normalized.charAt(10) == 'T') {
+                return LocalDateTime.parse(normalized.substring(0, 16));
+            }
+            if (normalized.length() >= 10) {
+                return LocalDate.parse(normalized.substring(0, 10)).atStartOfDay();
+            }
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+        return null;
     }
 
     private static int rounded(double value) {
