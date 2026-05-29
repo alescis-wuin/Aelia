@@ -119,6 +119,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
         return List.of(
                 new ApiLimit("Open-Meteo Forecast", "cache", "15 min"),
                 new ApiLimit("Open-Meteo Air Quality", "cache", "45 min"),
+                new ApiLimit("Open-Meteo model", "modèle", configuration.openMeteoModels().isBlank() ? "best_match" : configuration.openMeteoModels()),
                 new ApiLimit("WeatherAPI.com fallback", "clé", configuration.weatherApiEnabled() ? "activé" : "désactivé"),
                 new ApiLimit("Visual Crossing fallback", "clé", configuration.visualCrossingEnabled() ? "activé" : "désactivé"),
                 new ApiLimit("OpenWeather fallback", "clé", configuration.openWeatherEnabled() ? "activé" : "désactivé"),
@@ -226,6 +227,9 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
                 "uv_index_max",
                 "sunrise",
                 "sunset"));
+        if (!configuration.openMeteoModels().isBlank()) {
+            query.put("models", configuration.openMeteoModels());
+        }
 
         URI forecastUri = appendQuery(configuration.openMeteoForecastEndpoint(), query);
         String forecast = fetchText(forecastUri, configuration.forecastCacheTtl(), "Open-Meteo Forecast");
@@ -435,6 +439,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
             String weatherbitApiKey,
             String pirateWeatherApiKey,
             String userAgent,
+            String openMeteoModels,
             Duration connectTimeout,
             Duration requestTimeout,
             Duration forecastCacheTtl,
@@ -475,6 +480,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
                     weatherbitKey,
                     pirateWeatherKey,
                     EnvironmentSettings.text("aelia.remote.userAgent", "AELIA_REMOTE_USER_AGENT", "Aelia/0.4.1 github.com/alescis-wuin/Aelia"),
+                    EnvironmentSettings.text("aelia.openmeteo.models", "AELIA_OPENMETEO_MODELS", ""),
                     EnvironmentSettings.seconds("aelia.openmeteo.connectTimeoutSeconds", "AELIA_OPENMETEO_CONNECT_TIMEOUT_SECONDS", Duration.ofSeconds(20), 1, 120),
                     EnvironmentSettings.seconds("aelia.openmeteo.requestTimeoutSeconds", "AELIA_OPENMETEO_REQUEST_TIMEOUT_SECONDS", Duration.ofSeconds(40), 1, 180),
                     Duration.ofMinutes(15),
@@ -580,6 +586,7 @@ public final class RemoteWeatherDashboardProvider implements WeatherDashboardPro
             ProviderDiagnostics.info("Open-Meteo parsed current: city=" + configuration.city()
                     + ", latitude=" + configuration.latitude()
                     + ", longitude=" + configuration.longitude()
+                    + ", models=" + (configuration.openMeteoModels().isBlank() ? "best_match" : configuration.openMeteoModels())
                     + ", timezone=" + responseTimezone
                     + ", currentTime=" + currentTime
                     + ", temperature=" + temperature
