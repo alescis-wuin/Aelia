@@ -3,6 +3,7 @@ package fr.alescis.aelia;
 import atlantafx.base.theme.PrimerDark;
 import fr.alescis.aelia.model.DashboardDataStatus;
 import fr.alescis.aelia.model.DashboardSnapshot;
+import fr.alescis.aelia.model.LocationWeather;
 import fr.alescis.aelia.provider.ProviderDiagnostics;
 import fr.alescis.aelia.provider.WeatherDashboardProvider;
 import fr.alescis.aelia.provider.WeatherProviderFactory;
@@ -116,6 +117,39 @@ public final class AeliaApplication extends Application {
             if (WeatherProviderFactory.remoteRefreshEnabled(normalizedMode)) {
                 scheduleProviderRefresh(Duration.ZERO);
             }
+        });
+    }
+
+    private void selectWeatherLocation(LocationWeather location) {
+        if (location == null || !location.hasCoordinates()) {
+            return;
+        }
+        String activeMode = providerMode;
+        if (!WeatherProviderFactory.remoteRefreshEnabled(activeMode)) {
+            return;
+        }
+        System.setProperty("aelia.openmeteo.latitude", Double.toString(location.latitude()));
+        System.setProperty("aelia.openmeteo.longitude", Double.toString(location.longitude()));
+        System.setProperty("aelia.openmeteo.city", location.city());
+        System.setProperty("aelia.openmeteo.country", location.country());
+        ProviderDiagnostics.info("Selected weather location: " + location.city()
+                + " (" + location.latitude() + ", " + location.longitude() + ").");
+        cancelScheduledRefresh();
+        runtimeExecutor.execute(() -> {
+            AeliaWeatherService previousService = service;
+            if (previousService != null) {
+                previousService.close();
+            }
+            WeatherDashboardProvider provider = WeatherProviderFactory.createDashboardProvider(activeMode);
+            service = new AeliaWeatherService(provider);
+            providerMode = activeMode;
+            consecutiveRefreshFailures = 0;
+            Platform.runLater(() -> dashboardView.updateSnapshot(
+                    WeatherProviderFactory.simulatedSnapshot(activeMode).withDataStatus(
+                            DashboardDataStatus.unavailable(activeMode, "Chargement des données météo pour " + location.city() + ".")
+                    )
+            ));
+            scheduleProviderRefresh(Duration.ZERO);
         });
     }
 
@@ -240,6 +274,11 @@ public final class AeliaApplication extends Application {
         @Override
         public void refreshProviderData() {
             AeliaApplication.this.refreshProviderData();
+        }
+
+        @Override
+        public void selectWeatherLocation(LocationWeather location) {
+            AeliaApplication.this.selectWeatherLocation(location);
         }
     }
 
