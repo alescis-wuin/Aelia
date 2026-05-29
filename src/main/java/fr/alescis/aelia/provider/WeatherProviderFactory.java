@@ -70,6 +70,10 @@ public final class WeatherProviderFactory {
     }
 
     public static String providerMode() {
+        String environmentValue = System.getenv(ENVIRONMENT_NAME);
+        if (environmentValue != null && !environmentValue.isBlank()) {
+            return normalizeMode(environmentValue);
+        }
         return normalizeMode(EnvironmentSettings.text(PROPERTY_NAME, ENVIRONMENT_NAME).orElse(null));
     }
 
