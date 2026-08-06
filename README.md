@@ -1,5 +1,9 @@
 # Aelia
 
+<img width="3436" height="1440" alt="image" src="https://github.com/user-attachments/assets/59650331-da0a-47a2-84a2-7abbbce80647" />
+<img width="3436" height="1440" alt="image" src="https://github.com/user-attachments/assets/a32dd2cc-eb5f-4b6f-8c98-c492fa92ca33" />
+
+
 Aelia is a Java 21 bytecode target, JavaFX, Maven and AtlantaFX weather dashboard prototype.
 
 This iteration keeps the supplied desktop weather mockup visually stable while preparing the codebase for remote weather APIs. The view is still backed by a deterministic simulated provider and does not call any remote API.
