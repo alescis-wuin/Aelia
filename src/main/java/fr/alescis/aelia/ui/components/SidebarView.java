@@ -36,6 +36,7 @@ public final class SidebarView extends Pane {
     private final IntConsumer locationSelectionHandler;
     private final Consumer<String> navigationSelectionHandler;
     private Label emptySearchResult;
+    private TextField searchField;
     private int activeLocationIndex;
     private String activeNavigationId = "home";
 
@@ -69,32 +70,32 @@ public final class SidebarView extends Pane {
     }
 
     private void buildSearchField() {
-        TextField field = new TextField();
-        field.setPromptText("Rechercher une ville…");
-        field.getStyleClass().add("city-search-field");
-        field.setLayoutX(14);
-        field.setLayoutY(42);
-        field.setPrefSize(236, 34);
-        field.setAccessibleText("Rechercher une ville");
-        field.setAccessibleHelp("Filtre les lieux enregistrés. Entrée sélectionne le premier résultat.");
-        field.textProperty().addListener((observable, oldValue, newValue) -> filterLocations(newValue));
-        field.setOnKeyPressed(event -> {
+        searchField = new TextField();
+        searchField.setPromptText("Rechercher une ville…");
+        searchField.getStyleClass().add("city-search-field");
+        searchField.setLayoutX(14);
+        searchField.setLayoutY(42);
+        searchField.setPrefSize(236, 34);
+        searchField.setAccessibleText("Rechercher une ville");
+        searchField.setAccessibleHelp("Filtre les lieux enregistrés. Entrée sélectionne le premier résultat.");
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> filterLocations(newValue));
+        searchField.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ENTER) {
                 selectFirstVisibleLocation();
                 event.consume();
             } else if (event.getCode() == KeyCode.ESCAPE) {
-                field.clear();
+                searchField.clear();
                 event.consume();
             }
         });
-        TooltipSupport.install(field, "Recherche locale parmi les lieux enregistrés. Entrée sélectionne le premier résultat, Échap efface la recherche.");
+        TooltipSupport.install(searchField, "Recherche locale parmi les lieux enregistrés. Entrée sélectionne le premier résultat, Échap efface la recherche.");
 
         Node search = WeatherIcons.searchIcon();
         search.setLayoutX(33);
         search.setLayoutY(59);
         search.setMouseTransparent(true);
 
-        getChildren().addAll(field, search);
+        getChildren().addAll(searchField, search);
     }
 
     private void buildLocations(List<LocationWeather> locations) {
@@ -109,18 +110,43 @@ public final class SidebarView extends Pane {
         emptySearchResult.setVisible(false);
         getChildren().add(emptySearchResult);
 
-        for (int index = 0; index < locations.size(); index++) {
-            LocationWeather location = locations.get(index);
-            Pane card = locationCard(location, index);
-            card.setLayoutX(8);
-            card.setLayoutY(FIRST_LOCATION_Y + index * LOCATION_SPACING);
-            locationCards.add(new LocationCardView(card, location));
-            getChildren().add(card);
+        for (LocationWeather location : locations) {
+            addLocationInternal(location);
             if (location.selected()) {
-                activeLocationIndex = index;
+                activeLocationIndex = locationCards.size() - 1;
             }
         }
         updateLocationSelection();
+    }
+
+    public void addLocation(LocationWeather location, boolean select) {
+        addLocationInternal(location);
+        filterLocations(searchField == null ? "" : searchField.getText());
+        if (select) {
+            selectLocation(locationCards.size() - 1, true);
+        } else {
+            updateLocationSelection();
+        }
+    }
+
+    public void selectLocation(int index, boolean notify) {
+        if (index < 0 || index >= locationCards.size()) {
+            return;
+        }
+        activeLocationIndex = index;
+        updateLocationSelection();
+        if (notify) {
+            locationSelectionHandler.accept(index);
+        }
+    }
+
+    private void addLocationInternal(LocationWeather location) {
+        int index = locationCards.size();
+        Pane card = locationCard(location, index);
+        card.setLayoutX(8);
+        card.setLayoutY(FIRST_LOCATION_Y + index * LOCATION_SPACING);
+        locationCards.add(new LocationCardView(card, location));
+        getChildren().add(card);
     }
 
     private Pane locationCard(LocationWeather location, int index) {
@@ -138,10 +164,12 @@ public final class SidebarView extends Pane {
         Label city = UiText.label(location.city(), "location-city");
         city.setLayoutX(40);
         city.setLayoutY(11);
+        city.setPrefWidth(132);
 
         Label details = UiText.label(location.country() + " · " + location.condition().label(), "location-details");
         details.setLayoutX(40);
         details.setLayoutY(29);
+        details.setPrefWidth(154);
 
         Label temperature = UiText.data(location.temperatureCelsius() + "°", "location-temp");
         temperature.setLayoutX(212);
@@ -163,19 +191,9 @@ public final class SidebarView extends Pane {
                 event.consume();
             }
         });
-        TooltipSupport.install(card, location.city() + " · " + location.country() + " · " + location.condition().label() + " · " + location.temperatureCelsius() + " °C");
+        String coordinates = location.hasCoordinates() ? " · " + String.format(Locale.ROOT, "%.4f, %.4f", location.latitude(), location.longitude()) : "";
+        TooltipSupport.install(card, location.city() + " · " + location.country() + " · " + location.condition().label() + " · " + location.temperatureCelsius() + " °C" + coordinates);
         return card;
-    }
-
-    private void selectLocation(int index, boolean notify) {
-        if (index < 0 || index >= locationCards.size()) {
-            return;
-        }
-        activeLocationIndex = index;
-        updateLocationSelection();
-        if (notify) {
-            locationSelectionHandler.accept(index);
-        }
     }
 
     private void updateLocationSelection() {

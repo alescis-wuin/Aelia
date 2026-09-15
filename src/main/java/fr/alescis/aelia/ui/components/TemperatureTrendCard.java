@@ -23,15 +23,17 @@ public final class TemperatureTrendCard extends CardPane {
     private static final double CHART_TOP = 46.0;
     private static final double CHART_WIDTH = 458.0;
     private static final double CHART_HEIGHT = 84.0;
-    private static final int MIN_AXIS = 10;
-    private static final int MAX_AXIS = 32;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE);
 
     private final Line verticalCrosshair = new Line();
     private final Line horizontalCrosshair = new Line();
+    private final int minAxis;
+    private final int maxAxis;
 
     public TemperatureTrendCard(List<DailyForecast> forecasts) {
         super(556, 160);
+        this.minAxis = axisMinimum(forecasts);
+        this.maxAxis = axisMaximum(forecasts);
         Label title = UiText.section("Courbe de température — 7 jours");
         title.setLayoutX(18);
         title.setLayoutY(16);
@@ -45,9 +47,17 @@ public final class TemperatureTrendCard extends CardPane {
         AccessibilitySupport.describe(this, AccessibleRole.TEXT, "Courbe de température sur sept jours", "Affiche les températures maximales et minimales.");
     }
 
+    private int axisMinimum(List<DailyForecast> forecasts) {
+        return forecasts.stream().mapToInt(DailyForecast::minimumTemperatureCelsius).min().orElse(10) - 2;
+    }
+
+    private int axisMaximum(List<DailyForecast> forecasts) {
+        return forecasts.stream().mapToInt(DailyForecast::maximumTemperatureCelsius).max().orElse(32) + 2;
+    }
+
     private void drawGrid() {
-        int[] labels = {30, 25, 20, 15};
-        for (int label : labels) {
+        int step = Math.max(1, (maxAxis - minAxis) / 4);
+        for (int label = maxAxis; label >= minAxis; label -= step) {
             double y = yFor(label);
             Line line = new Line(CHART_LEFT, y, CHART_LEFT + CHART_WIDTH, y);
             line.getStyleClass().add("chart-grid-line");
@@ -56,7 +66,7 @@ public final class TemperatureTrendCard extends CardPane {
             axis.setLayoutY(y - 8);
             getChildren().addAll(line, axis);
         }
-        Rectangle fill = new Rectangle(CHART_LEFT, yFor(25), CHART_WIDTH, yFor(10) - yFor(25));
+        Rectangle fill = new Rectangle(CHART_LEFT, yFor(maxAxis - step), CHART_WIDTH, yFor(minAxis) - yFor(maxAxis - step));
         fill.setFill(Palette.withOpacity(Palette.YELLOW, 0.035));
         fill.setMouseTransparent(true);
         getChildren().add(fill);
@@ -159,8 +169,6 @@ public final class TemperatureTrendCard extends CardPane {
         Label minLabel = UiText.label("Min", "legend-min");
         minLabel.setLayoutX(517);
         minLabel.setLayoutY(17);
-        TooltipSupport.install(maxPoint, "Températures maximales");
-        TooltipSupport.install(minPoint, "Températures minimales");
         getChildren().addAll(maxLine, maxPoint, maxLabel, minLine, minPoint, minLabel);
     }
 
@@ -169,7 +177,7 @@ public final class TemperatureTrendCard extends CardPane {
     }
 
     private double yFor(int value) {
-        double normalized = GaugeMath.normalize(value, MIN_AXIS, MAX_AXIS);
+        double normalized = GaugeMath.normalize(value, minAxis, maxAxis);
         return CHART_TOP + CHART_HEIGHT - normalized * CHART_HEIGHT;
     }
 

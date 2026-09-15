@@ -18,7 +18,7 @@ import javafx.scene.shape.StrokeLineCap;
  * Air-quality index card with key pollutants.
  */
 public final class AirQualityCard extends CardPane {
-    private static final double GOOD_RANGE_MAX = 50.0;
+    private static final double MODERATE_RANGE_MAX = 100.0;
 
     public AirQualityCard(AirQuality airQuality) {
         super(256, 254);
@@ -31,10 +31,10 @@ public final class AirQualityCard extends CardPane {
         base.setStroke(Palette.BORDER_SOFT);
         base.setStrokeWidth(10.0);
 
-        double progress = GaugeMath.normalize(airQuality.airQualityIndex(), 0.0, GOOD_RANGE_MAX);
+        double progress = GaugeMath.normalize(airQuality.airQualityIndex(), 0.0, MODERATE_RANGE_MAX);
         Arc arc = new Arc(128, 95, 52, 52, 90, -360.0 * progress);
         arc.setFill(null);
-        arc.setStroke(Palette.LIME);
+        arc.setStroke(airQuality.airQualityIndex() > 50 ? Palette.LIME : Palette.GREEN);
         arc.setStrokeWidth(10.0);
         arc.setStrokeLineCap(StrokeLineCap.ROUND);
         arc.setType(ArcType.OPEN);
@@ -50,16 +50,16 @@ public final class AirQualityCard extends CardPane {
         unit.setPrefWidth(72);
         unit.setAlignment(Pos.CENTER);
 
-        Rectangle badge = new Rectangle(48, 16);
-        badge.setLayoutX(104);
+        Rectangle badge = new Rectangle(60, 16);
+        badge.setLayoutX(98);
         badge.setLayoutY(118);
         badge.setArcWidth(16);
         badge.setArcHeight(16);
         badge.getStyleClass().add("aqi-badge");
         Label status = UiText.data(airQuality.status(), "aqi-status");
-        status.setLayoutX(104);
+        status.setLayoutX(98);
         status.setLayoutY(119);
-        status.setPrefWidth(48);
+        status.setPrefWidth(60);
         status.setAlignment(Pos.CENTER);
 
         Line separator = new Line(14, 164, 242, 164);
@@ -72,9 +72,6 @@ public final class AirQualityCard extends CardPane {
                 + " · PM10 " + airQuality.pm10MicrogramsPerCubicMeter() + " µg/m³"
                 + " · NO₂ " + airQuality.no2MicrogramsPerCubicMeter() + " µg/m³";
         TooltipSupport.install(this, tooltipText);
-        TooltipSupport.install(base, tooltipText);
-        TooltipSupport.install(arc, tooltipText);
-        TooltipSupport.install(badge, "Statut qualité de l'air : " + airQuality.status());
         pollutant("PM2.5", airQuality.pm25MicrogramsPerCubicMeter(), 181);
         pollutant("PM10", airQuality.pm10MicrogramsPerCubicMeter(), 206);
         pollutant("NO₂", airQuality.no2MicrogramsPerCubicMeter(), 231);

@@ -31,9 +31,6 @@ public record DailyForecast(
         }
     }
 
-    /**
-     * Compatibility constructor for the original mockup-oriented data catalog.
-     */
     public DailyForecast(
             String dayLabel,
             WeatherCondition condition,

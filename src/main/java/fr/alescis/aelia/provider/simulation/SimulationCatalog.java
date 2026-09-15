@@ -23,7 +23,7 @@ import java.util.Map;
  * Central catalog for deterministic mockup values.
  */
 public final class SimulationCatalog {
-    private static final LocalDate MOCK_DATE = LocalDate.of(2025, 5, 25);
+    private static final LocalDate MOCK_DATE = LocalDate.of(2026, 5, 26);
     private static final ZoneId PARIS_ZONE = ZoneId.of("Europe/Paris");
 
     private SimulationCatalog() {
@@ -47,7 +47,7 @@ public final class SimulationCatalog {
                 ApiLimit.limited("Current snapshot", LimitPeriod.SECOND, 10, "requêtes"),
                 ApiLimit.limited("Subscriptions", LimitPeriod.CLIENT, 25, "flux actifs"),
                 ApiLimit.limited("Minimum interval", LimitPeriod.STREAM, 1, "seconde"),
-                new ApiLimit("Remote calls", LimitPeriod.NETWORK.label(), "aucun en simulation")
+                new ApiLimit("Remote calls", LimitPeriod.NETWORK.label(), "carte uniquement pour géocodage")
         );
     }
 
@@ -67,68 +67,67 @@ public final class SimulationCatalog {
 
     public static List<LocationWeather> locations() {
         return List.of(
-                new LocationWeather("Paris", "France", WeatherCondition.SUNNY, 24, true),
-                new LocationWeather("Tokyo", "Japon", WeatherCondition.PARTLY_CLOUDY, 19, false),
-                new LocationWeather("New York", "USA", WeatherCondition.RAINY, 11, false),
-                new LocationWeather("Dubaï", "EAU", WeatherCondition.SUNNY, 38, false)
+                new LocationWeather("Rouen", "France", WeatherCondition.SUNNY, 32, true, 49.4432, 1.0993),
+                new LocationWeather("Tokyo", "Japon", WeatherCondition.PARTLY_CLOUDY, 19, false, 35.6762, 139.6503),
+                new LocationWeather("New York", "USA", WeatherCondition.RAINY, 11, false, 40.7128, -74.0060),
+                new LocationWeather("Dubaï", "EAU", WeatherCondition.SUNNY, 38, false, 25.2048, 55.2708)
         );
     }
 
     public static CurrentWeather currentWeather() {
         return new CurrentWeather(
-                "Paris",
+                "Rouen",
                 "Ensoleillé",
                 MOCK_DATE,
                 PARIS_ZONE,
-                24,
-                28,
-                17,
-                22,
-                LocalTime.of(6, 4),
-                LocalTime.of(21, 47),
-                62,
-                18,
-                "SO → NE",
                 32,
-                1018,
-                "↗ En hausse",
-                5,
-                "Protection solaire recommandée entre 11h et 16h",
-                new AirQuality(42, "BON", 12, 28, 18),
-                LocalTime.of(15, 30)
+                33,
+                18,
+                33,
+                LocalTime.of(5, 58),
+                LocalTime.of(21, 46),
+                33,
+                4,
+                "NE → SO",
+                12,
+                1024,
+                "↘ En baisse",
+                7,
+                "Risque UV modéré à élevé selon l'heure.",
+                new AirQuality(53, "MODÉRÉ", 10, 21, 4),
+                LocalTime.of(19, 13)
         );
     }
 
     public static List<HourlyForecast> hourlyForecasts() {
         return List.of(
-                new HourlyForecast(LocalTime.of(9, 0), WeatherCondition.SUNNY, 18, false),
-                new HourlyForecast(LocalTime.of(12, 0), WeatherCondition.SUNNY, 24, true),
-                new HourlyForecast(LocalTime.of(15, 0), WeatherCondition.SUNNY, 27, false),
-                new HourlyForecast(LocalTime.of(18, 0), WeatherCondition.PARTLY_CLOUDY, 23, false),
-                new HourlyForecast(LocalTime.of(21, 0), WeatherCondition.CLEAR_NIGHT, 19, false),
-                new HourlyForecast(LocalTime.MIDNIGHT, WeatherCondition.CLEAR_NIGHT, 16, false),
-                new HourlyForecast(LocalTime.of(3, 0), WeatherCondition.CLEAR_NIGHT, 14, false),
-                new HourlyForecast(LocalTime.of(6, 0), WeatherCondition.SUNNY, 15, false),
-                new HourlyForecast(LocalTime.of(9, 0), WeatherCondition.SUNNY, 20, false)
+                new HourlyForecast(LocalTime.of(19, 0), WeatherCondition.SUNNY, 32, true),
+                new HourlyForecast(LocalTime.of(22, 0), WeatherCondition.CLEAR_NIGHT, 28, false),
+                new HourlyForecast(LocalTime.of(1, 0), WeatherCondition.CLEAR_NIGHT, 22, false),
+                new HourlyForecast(LocalTime.of(4, 0), WeatherCondition.CLEAR_NIGHT, 20, false),
+                new HourlyForecast(LocalTime.of(7, 0), WeatherCondition.SUNNY, 18, false),
+                new HourlyForecast(LocalTime.of(10, 0), WeatherCondition.SUNNY, 25, false),
+                new HourlyForecast(LocalTime.of(13, 0), WeatherCondition.SUNNY, 30, false),
+                new HourlyForecast(LocalTime.of(16, 0), WeatherCondition.SUNNY, 32, false)
         );
     }
 
     public static List<DailyForecast> dailyForecasts() {
         return List.of(
-                new DailyForecast(MOCK_DATE.plusDays(1), "Lun. 26", WeatherCondition.SUNNY, 26, 15, 5, 14, 4, true),
-                new DailyForecast(MOCK_DATE.plusDays(2), "Mar. 27", WeatherCondition.PARTLY_CLOUDY, 22, 14, 40, 22, 3, false),
-                new DailyForecast(MOCK_DATE.plusDays(3), "Mer. 28", WeatherCondition.RAINY, 19, 13, 75, 28, 2, false),
-                new DailyForecast(MOCK_DATE.plusDays(4), "Jeu. 29", WeatherCondition.SUNNY, 27, 16, 0, 16, 6, false),
-                new DailyForecast(MOCK_DATE.plusDays(5), "Ven. 30", WeatherCondition.SUNNY, 29, 18, 0, 12, 7, false),
-                new DailyForecast(MOCK_DATE.plusDays(6), "Sam. 31", WeatherCondition.SUNNY, 26, 15, 10, 15, 5, false),
-                new DailyForecast(MOCK_DATE.plusDays(7), "Dim. 01", WeatherCondition.SUNNY, 28, 17, 0, 18, 5, false)
+                new DailyForecast(MOCK_DATE, "Mar. 26", WeatherCondition.PARTLY_CLOUDY, 33, 18, 0, 9, 7, true),
+                new DailyForecast(MOCK_DATE.plusDays(1), "Mer. 27", WeatherCondition.PARTLY_CLOUDY, 32, 18, 0, 11, 7, false),
+                new DailyForecast(MOCK_DATE.plusDays(2), "Jeu. 28", WeatherCondition.PARTLY_CLOUDY, 33, 21, 5, 13, 7, false),
+                new DailyForecast(MOCK_DATE.plusDays(3), "Ven. 29", WeatherCondition.PARTLY_CLOUDY, 34, 18, 3, 13, 7, false),
+                new DailyForecast(MOCK_DATE.plusDays(4), "Sam. 30", WeatherCondition.PARTLY_CLOUDY, 29, 17, 3, 17, 7, false),
+                new DailyForecast(MOCK_DATE.plusDays(5), "Dim. 31", WeatherCondition.PARTLY_CLOUDY, 20, 14, 18, 27, 4, false),
+                new DailyForecast(MOCK_DATE.plusDays(6), "Lun. 1", WeatherCondition.PARTLY_CLOUDY, 22, 13, 22, 14, 5, false)
         );
     }
 
     public static List<PollenRisk> pollenRisks() {
         return new ArrayList<>(List.of(
-                new PollenRisk("Graminées", PollenLevel.HIGH),
-                new PollenRisk("Bouleau", PollenLevel.MODERATE),
+                new PollenRisk("Graminées", PollenLevel.MODERATE),
+                new PollenRisk("Bouleau", PollenLevel.NONE),
                 new PollenRisk("Olivier", PollenLevel.LOW),
                 new PollenRisk("Ambroisie", PollenLevel.NONE)
         ));

@@ -94,14 +94,6 @@ public final class SunPathCard extends CardPane {
                 + " · coucher " + UiFormatters.time(weather.sunsetTime())
                 + " · " + weather.daylightDuration();
         TooltipSupport.install(this, tooltipText);
-        TooltipSupport.install(path, tooltipText);
-        TooltipSupport.install(elapsed, "Progression solaire : " + Math.round(weather.daylightProgress() * 100.0) + " % du jour");
-        TooltipSupport.install(sun, "Position actuelle du soleil : " + weather.currentSolarTime());
-        TooltipSupport.install(sunHalo, "Position actuelle du soleil : " + weather.currentSolarTime());
-        TooltipSupport.install(daylightBadge, weather.daylightDuration());
-        TooltipSupport.install(duration, weather.daylightDuration());
-        TooltipSupport.install(sunrise, "Lever du soleil : " + UiFormatters.time(weather.sunriseTime()));
-        TooltipSupport.install(sunset, "Coucher du soleil : " + UiFormatters.time(weather.sunsetTime()));
         AccessibilitySupport.describe(this, AccessibleRole.TEXT,
                 "Soleil levé à " + UiFormatters.time(weather.sunriseTime()) + ", coucher à "
                         + UiFormatters.time(weather.sunsetTime()) + ", durée du jour "

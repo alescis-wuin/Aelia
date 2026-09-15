@@ -6,9 +6,9 @@
 
     <groupId>fr.alescis</groupId>
     <artifactId>aelia</artifactId>
-    <version>0.3.10-SNAPSHOT</version>
+    <version>0.4.1-SNAPSHOT</version>
     <name>Aelia</name>
-    <description>Accessible JavaFX weather dashboard inspired by a high-contrast desktop mockup.</description>
+    <description>Accessible JavaFX weather dashboard with a native interactive OpenStreetMap tile view.</description>
     <url>https://github.com/alescis-wuin/Aelia</url>
     <inceptionYear>2026</inceptionYear>
 
@@ -20,26 +20,23 @@
         </license>
     </licenses>
 
-    <developers>
-        <developer>
-            <id>alescis-wuin</id>
-            <name>alescis-wuin</name>
-        </developer>
-    </developers>
-
-    <scm>
-        <connection>scm:git:https://github.com/alescis-wuin/Aelia.git</connection>
-        <developerConnection>scm:git:git@github.com:alescis-wuin/Aelia.git</developerConnection>
-        <url>https://github.com/alescis-wuin/Aelia</url>
-        <tag>HEAD</tag>
-    </scm>
-
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>21</maven.compiler.release>
-        <javafx.version>21.0.7</javafx.version>
+        <maven.compiler.release>26</maven.compiler.release>
+        <javafx.version>26.0.1</javafx.version>
         <atlantafx.version>2.1.0</atlantafx.version>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
+
+        <aelia.weather.provider>auto</aelia.weather.provider>
+        <aelia.openmeteo.latitude></aelia.openmeteo.latitude>
+        <aelia.openmeteo.longitude></aelia.openmeteo.longitude>
+        <aelia.openmeteo.city></aelia.openmeteo.city>
+        <aelia.openmeteo.country></aelia.openmeteo.country>
+        <aelia.openmeteo.timezone></aelia.openmeteo.timezone>
+        <aelia.openmeteo.connectTimeoutSeconds>20</aelia.openmeteo.connectTimeoutSeconds>
+        <aelia.openmeteo.requestTimeoutSeconds>40</aelia.openmeteo.requestTimeoutSeconds>
+        <aelia.diagnostics>true</aelia.diagnostics>
+        <java.net.preferIPv4Stack>false</java.net.preferIPv4Stack>
     </properties>
 
     <dependencies>
@@ -85,7 +82,19 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>fr.alescis.aelia.AeliaApplication</mainClass>
+                    <mainClass>fr.alescis.aelia/fr.alescis.aelia.AeliaApplication</mainClass>
+                    <options>
+                        <option>-Daelia.weather.provider=${aelia.weather.provider}</option>
+                        <option>-Daelia.openmeteo.latitude=${aelia.openmeteo.latitude}</option>
+                        <option>-Daelia.openmeteo.longitude=${aelia.openmeteo.longitude}</option>
+                        <option>-Daelia.openmeteo.city=${aelia.openmeteo.city}</option>
+                        <option>-Daelia.openmeteo.country=${aelia.openmeteo.country}</option>
+                        <option>-Daelia.openmeteo.timezone=${aelia.openmeteo.timezone}</option>
+                        <option>-Daelia.openmeteo.connectTimeoutSeconds=${aelia.openmeteo.connectTimeoutSeconds}</option>
+                        <option>-Daelia.openmeteo.requestTimeoutSeconds=${aelia.openmeteo.requestTimeoutSeconds}</option>
+                        <option>-Daelia.diagnostics=${aelia.diagnostics}</option>
+                        <option>-Djava.net.preferIPv4Stack=${java.net.preferIPv4Stack}</option>
+                    </options>
                 </configuration>
             </plugin>
         </plugins>
