@@ -58,8 +58,7 @@ public final class HourlyForecastCard extends CardPane {
             chip.setLayoutX(CONTENT_LEFT_PADDING + index * CHIP_SPACING);
             chip.setLayoutY(0);
             content.getChildren().add(chip);
-            HourChipView view = new HourChipView(chip, forecast);
-            chipViews.add(view);
+            chipViews.add(new HourChipView(chip, forecast));
             if (forecast.selected()) {
                 selectedIndex = index;
             }

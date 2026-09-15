@@ -74,12 +74,6 @@ public final class CurrentWeatherHero extends CardPane {
                 + " · max " + weather.maximumTemperatureCelsius() + " °C"
                 + " · min " + weather.minimumTemperatureCelsius() + " °C";
         TooltipSupport.install(this, tooltipText);
-        TooltipSupport.install(datePill, weather.city() + " · " + UiFormatters.dateLabel(weather.date()));
-        TooltipSupport.install(date, weather.city() + " · " + UiFormatters.dateLabel(weather.date()));
-        TooltipSupport.install(sun, weather.conditionLabel());
-        TooltipSupport.install(condition, weather.conditionLabel());
-        TooltipSupport.install(details, "Ressenti " + weather.apparentTemperatureCelsius() + " °C · lever "
-                + UiFormatters.time(weather.sunriseTime()) + " · coucher " + UiFormatters.time(weather.sunsetTime()));
         AccessibilitySupport.describe(
                 this,
                 AccessibleRole.TEXT,

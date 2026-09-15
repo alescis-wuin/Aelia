@@ -1,6 +1,17 @@
-target/
-.idea/
+# Maven
+/target/
+
+# IDEs
+/.idea/
 *.iml
-*.log
+/.classpath
+/.project
+/.settings/
+
+# OS
 .DS_Store
-src/main/resources/fr/alescis/aelia/fonts/*.ttf
+Thumbs.db
+
+# Local configuration
+.env
+.env.local

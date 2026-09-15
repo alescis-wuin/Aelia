@@ -17,9 +17,6 @@ public record HourlyForecast(
         condition = Objects.requireNonNull(condition, "condition");
     }
 
-    /**
-     * Compatibility constructor for earlier view code and tests.
-     */
     public HourlyForecast(String hour, WeatherCondition condition, int temperatureCelsius, boolean selected) {
         this(parseHour(hour), condition, temperatureCelsius, selected);
     }

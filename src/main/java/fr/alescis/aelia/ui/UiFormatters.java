@@ -28,7 +28,7 @@ public final class UiFormatters {
     public static String dateLabel(LocalDate date) {
         String day = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, FRENCH);
         String month = date.getMonth().getDisplayName(TextStyle.SHORT, FRENCH);
-        return capitalize(day).replace(".", ".") + " " + date.getDayOfMonth() + " " + month + " " + date.getYear();
+        return capitalize(day) + " " + date.getDayOfMonth() + " " + month + " " + date.getYear();
     }
 
     public static String daylightDuration(Duration duration) {

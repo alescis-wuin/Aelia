@@ -1,4 +1,5 @@
 module fr.alescis.aelia {
+    requires java.net.http;
     requires javafx.controls;
     requires javafx.graphics;
     requires atlantafx.base;

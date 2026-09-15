@@ -79,9 +79,6 @@ public final class PollenCard extends CardPane {
 
         String tooltipText = risk.name() + " : " + risk.level().label();
         TooltipSupport.install(row, tooltipText);
-        TooltipSupport.install(track, tooltipText);
-        TooltipSupport.install(progress, tooltipText);
-        TooltipSupport.install(level, tooltipText);
         getChildren().addAll(row, bullet, name, track, progress, level);
     }
 

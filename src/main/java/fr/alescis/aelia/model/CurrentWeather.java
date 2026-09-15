@@ -13,11 +13,6 @@ import java.util.Objects;
 
 /**
  * Current weather and environmental indicators for the selected location.
- *
- * <p>The class keeps the original mockup-facing string accessors while storing
- * typed temporal values internally. This preserves compatibility with older
- * dashboard code and still gives future remote API providers a clean typed
- * target for dates, times and time zones.</p>
  */
 public final class CurrentWeather {
     private static final Locale FRENCH = Locale.FRANCE;
@@ -89,9 +84,6 @@ public final class CurrentWeather {
         this.airQuality = Objects.requireNonNull(airQuality, "airQuality");
     }
 
-    /**
-     * Compatibility constructor matching the original mockup-oriented model.
-     */
     public CurrentWeather(
             String city,
             String conditionLabel,
@@ -138,21 +130,10 @@ public final class CurrentWeather {
         );
     }
 
-    public String city() {
-        return city;
-    }
-
-    public String conditionLabel() {
-        return conditionLabel;
-    }
-
-    public LocalDate date() {
-        return date;
-    }
-
-    public ZoneId zoneId() {
-        return zoneId;
-    }
+    public String city() { return city; }
+    public String conditionLabel() { return conditionLabel; }
+    public LocalDate date() { return date; }
+    public ZoneId zoneId() { return zoneId; }
 
     public String dateLabel() {
         String day = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, FRENCH);
@@ -160,77 +141,24 @@ public final class CurrentWeather {
         return capitalize(day) + " " + date.getDayOfMonth() + " " + month + " " + date.getYear();
     }
 
-    public int temperatureCelsius() {
-        return temperatureCelsius;
-    }
-
-    public int maximumTemperatureCelsius() {
-        return maximumTemperatureCelsius;
-    }
-
-    public int minimumTemperatureCelsius() {
-        return minimumTemperatureCelsius;
-    }
-
-    public int apparentTemperatureCelsius() {
-        return apparentTemperatureCelsius;
-    }
-
-    public LocalTime sunriseTime() {
-        return sunriseTime;
-    }
-
-    public String sunrise() {
-        return TIME_FORMATTER.format(sunriseTime);
-    }
-
-    public LocalTime sunsetTime() {
-        return sunsetTime;
-    }
-
-    public String sunset() {
-        return TIME_FORMATTER.format(sunsetTime);
-    }
-
-    public int humidityPercent() {
-        return humidityPercent;
-    }
-
-    public int windSpeedKmh() {
-        return windSpeedKmh;
-    }
-
-    public String windDirection() {
-        return windDirection;
-    }
-
-    public int windGustKmh() {
-        return windGustKmh;
-    }
-
-    public int pressureHpa() {
-        return pressureHpa;
-    }
-
-    public String pressureTrend() {
-        return pressureTrend;
-    }
-
-    public int uvIndex() {
-        return uvIndex;
-    }
-
-    public String uvAdvice() {
-        return uvAdvice;
-    }
-
-    public AirQuality airQuality() {
-        return airQuality;
-    }
-
-    public LocalTime currentSolarLocalTime() {
-        return currentSolarTime;
-    }
+    public int temperatureCelsius() { return temperatureCelsius; }
+    public int maximumTemperatureCelsius() { return maximumTemperatureCelsius; }
+    public int minimumTemperatureCelsius() { return minimumTemperatureCelsius; }
+    public int apparentTemperatureCelsius() { return apparentTemperatureCelsius; }
+    public LocalTime sunriseTime() { return sunriseTime; }
+    public String sunrise() { return TIME_FORMATTER.format(sunriseTime); }
+    public LocalTime sunsetTime() { return sunsetTime; }
+    public String sunset() { return TIME_FORMATTER.format(sunsetTime); }
+    public int humidityPercent() { return humidityPercent; }
+    public int windSpeedKmh() { return windSpeedKmh; }
+    public String windDirection() { return windDirection; }
+    public int windGustKmh() { return windGustKmh; }
+    public int pressureHpa() { return pressureHpa; }
+    public String pressureTrend() { return pressureTrend; }
+    public int uvIndex() { return uvIndex; }
+    public String uvAdvice() { return uvAdvice; }
+    public AirQuality airQuality() { return airQuality; }
+    public LocalTime currentSolarLocalTime() { return currentSolarTime; }
 
     public String currentSolarTime() {
         return "~" + TIME_FORMATTER.format(currentSolarTime).replace(":", "h");

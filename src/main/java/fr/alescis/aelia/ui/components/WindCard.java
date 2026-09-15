@@ -74,10 +74,6 @@ public final class WindCard extends CardPane {
         getChildren().addAll(title, windMark, base, progress, centerText, badge, directionLabel, gustLabel, gustValue);
         String tooltipText = "Vent " + speedKmh + " km/h · direction " + direction + " · rafales " + gustKmh + " km/h";
         TooltipSupport.install(this, tooltipText);
-        TooltipSupport.install(base, tooltipText);
-        TooltipSupport.install(progress, tooltipText);
-        TooltipSupport.install(badge, "Direction du vent : " + direction);
-        TooltipSupport.install(directionLabel, "Direction du vent : " + direction);
         AccessibilitySupport.describe(this, AccessibleRole.TEXT,
                 "Vent " + speedKmh + " kilomètres par heure, direction " + direction + ", rafales " + gustKmh + " kilomètres par heure",
                 "Carte de vitesse du vent, direction et rafales.");
